@@ -1,0 +1,95 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  password        String
+  name            String
+  role            Role      @default(USER)
+  tickets         Ticket[]  @relation("TicketOwner") // ✅ Explicitly named relation
+  assignedTickets Ticket[]  @relation("AssignedAgent")
+  wantsToBeAgent Boolean @default(false)
+  isApproved      Boolean @default(false)
+  comments        Comment[]
+  createdAt       DateTime  @default(now())
+  updatedAt DateTime @updatedAt @default(now())
+
+  // Optional: For agents or admins, extend with profile fields
+  agentProfile AgentProfile?
+  adminProfile AdminProfile?
+}
+
+model AgentProfile {
+  id          String  @id @default(cuid())
+  userId      String  @unique
+  user        User    @relation(fields: [userId], references: [id])
+  department  String? // Optional: like "Tech Support", "Billing"
+  isAvailable Boolean @default(true)
+}
+
+model AdminProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+  level  Int    @default(1) // Super admin? Manager?
+  
+}
+
+model Ticket {
+  id            String         @id @default(cuid())
+  title         String
+  description   String
+  status        TicketStatus   @default(OPEN)
+  priority      TicketPriority
+  userId        String
+  assignedTo    String? // agentId
+  user          User           @relation("TicketOwner", fields: [userId], references: [id]) // ✅ Matched by name
+  assignedAgent User?          @relation("AssignedAgent", fields: [assignedTo], references: [id])
+  comments      Comment[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  ticketId  String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+enum Role {
+  USER
+  AGENT
+  ADMIN
+}
+
+enum TicketStatus {
+  OPEN
+  PENDING
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
