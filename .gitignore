@@ -13,6 +13,9 @@
 # testing
 /coverage
 
+# Ignore Winston logs
+logs/
+
 # next.js
 /.next/
 /out/

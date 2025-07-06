@@ -1,5 +1,5 @@
 // API route to serve OpenAPI JSON
-import { openApiDocument } from "@/lib/opnapi/generator";
+import { openApiDocument } from "@/lib/openapi/generator";
 import { NextResponse } from "next/server";
 
 export async function GET() {

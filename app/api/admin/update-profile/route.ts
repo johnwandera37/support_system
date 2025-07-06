@@ -5,7 +5,7 @@ import { comparePasswords, hashPassword } from "@/lib/hash"; // assuming you hav
 import { errLog, log } from "@/utils/logger";
 import { getErrorMessage } from "@/utils/errMsg";
 import { updateProfileSchema } from "@/lib/zodSchema";
-import { badRequestFromZod } from "@/utils/zodBadRequest";
+import { badRequestFromZod } from "@/utils/responseUtils";
 import { getRedisClient } from "@/lib/redis";
 import { apiResponse, getRefreshTokenFromRequest } from "@/lib/cookieUtils";
 import { verifyRefreshToken } from "@/lib/jwt";

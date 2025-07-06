@@ -7,6 +7,8 @@ import { regigisterLogin } from "./auth/login";
 import { regigisterLogout } from "./auth/logout";
 import { regigisterRefresh } from "./auth/refresh";
 import { regigisterSignup } from "./auth/signup";
+import { registerComment } from "./comments/comment";
+import { registerComments } from "./comments/comments";
 import { regigisterTicket } from "./tickets/ticket";
 import { regigisterTickets } from "./tickets/tickets";
 // A Central Path Registration File
@@ -27,5 +29,9 @@ export function registerAllPaths() {
     // Tickets
     regigisterTickets();
     regigisterTicket();
+
+    // Comments
+    registerComments();
+    registerComment();
 
 }

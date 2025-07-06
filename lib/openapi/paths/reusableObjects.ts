@@ -33,7 +33,7 @@ const authFnResult = {
   },
 };
 
-// If there are other 403 apart from this one
+// If there are other 403 apart from this one (from authorization fun)
 const forbiddenAuthFnResult = {
   summary: "Specified role required",
   description: "Specified role access required",
@@ -42,7 +42,7 @@ const forbiddenAuthFnResult = {
   },
 };
 
-// If its the only 403 in that route
+// If its the only 403 in that route (from authorization fun)
 const forbidden403OnlyAuthFnResult = {
   description: "Authorization failed - Specified role access required (Specic user with specific role)",
   content: {
@@ -149,6 +149,8 @@ export function commonInternalError(example: string) {
 const serverErr1 = commonInternalError("Internal server error");
 const serverErr2 = commonInternalError("Something went wrong");
 const serverErr3 = commonInternalError("Credential update failed");
+const serverErr4 = commonInternalError("An unexpected error occurred while creating the comment");
+const serverErr5 = commonInternalError("Failed to update comment");
 
 export {
   authFnResult,
@@ -159,6 +161,8 @@ export {
   serverErr1,
   serverErr2,
   serverErr3,
+  serverErr4,
+  serverErr5,
   refreshTokenFromCookieResponseErrors,
   getUserDataFromATerrExamples,
   invalidRefreshTokenExample,

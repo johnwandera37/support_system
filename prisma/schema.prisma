@@ -22,21 +22,33 @@ model User {
   role            Role      @default(USER)
   tickets         Ticket[]  @relation("TicketOwner") // ✅ Explicitly named relation
   assignedTickets Ticket[]  @relation("AssignedAgent")
-  wantsToBeAgent Boolean @default(false)
-  isApproved      Boolean @default(false)
+  wantsToBeAgent  Boolean   @default(false)
+  isApproved      Boolean   @default(false)
   comments        Comment[]
   createdAt       DateTime  @default(now())
-  updatedAt DateTime @updatedAt @default(now())
+  updatedAt       DateTime  @default(now()) @updatedAt
+
+  // Add these new relations
+  statusChangeLogs     TicketStatusLog[]     @relation("StatusLogChangedBy")
+  assignmentChangeLogs TicketAssignmentLog[] @relation("AssignmentLogChangedBy")
+  oldAssigneeLogs      TicketAssignmentLog[] @relation("OldAssignee")
+  newAssigneeLogs      TicketAssignmentLog[] @relation("NewAssignee")
+   // Add this new relation for notifications
+  notifications   Notification[]  @relation("UserNotifications")
+
+  privateComments      PrivateComment[]
 
   // Optional: For agents or admins, extend with profile fields
   agentProfile AgentProfile?
   adminProfile AdminProfile?
+
+  protected Boolean @default(true) // This is to prevents accidently deleting users during tests
 }
 
 model AgentProfile {
   id          String  @id @default(cuid())
   userId      String  @unique
-  user        User    @relation(fields: [userId], references: [id])
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   department  String? // Optional: like "Tech Support", "Billing"
   isAvailable Boolean @default(true)
 }
@@ -44,34 +56,126 @@ model AgentProfile {
 model AdminProfile {
   id     String @id @default(cuid())
   userId String @unique
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   level  Int    @default(1) // Super admin? Manager?
-  
 }
 
 model Ticket {
-  id            String         @id @default(cuid())
-  title         String
-  description   String
-  status        TicketStatus   @default(OPEN)
-  priority      TicketPriority
-  userId        String
-  assignedTo    String? // agentId
-  user          User           @relation("TicketOwner", fields: [userId], references: [id]) // ✅ Matched by name
-  assignedAgent User?          @relation("AssignedAgent", fields: [assignedTo], references: [id])
-  comments      Comment[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id             String                @id @default(cuid())
+  title          String
+  description    String
+  status         TicketStatus          @default(OPEN)
+  priority       TicketPriority
+  userId         String
+  assignedTo     String? // agentId
+  user           User                  @relation("TicketOwner", fields: [userId], references: [id]) // ✅ Matched by name
+  assignedAgent  User?                 @relation("AssignedAgent", fields: [assignedTo], references: [id])
+  statusLogs     TicketStatusLog[]
+  assignmentLogs TicketAssignmentLog[]
+  comments       Comment[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  escalationReason String?
+  isEscalated      Boolean          @default(false)
+  escalatedTo      String? // Admin ID
+  escalatedBy      String? // Agent ID
+  escalatedAt      DateTime?
+  privateComments  PrivateComment[]
+
+  // For frequently queried fields
+  @@index([status])
+  @@index([assignedTo])
+  @@index([userId])
+}
+
+model TicketStatusLog {
+  id        String        @id @default(cuid())
+  ticket    Ticket        @relation(fields: [ticketId], references: [id])
+  ticketId  String
+  oldStatus TicketStatus?
+  newStatus TicketStatus
+  changedBy User          @relation(fields: [userId], references: [id], name: "StatusLogChangedBy")
+  userId    String  // The agent's or admin's id (The one who is updating this ticket status)
+  createdAt DateTime      @default(now())
+
+  // frequently filtered fields, great for large databases
+  @@index([ticketId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model TicketAssignmentLog {
+  id          String  @id @default(cuid())
+  ticket      Ticket  @relation(fields: [ticketId], references: [id])
+  ticketId    String
+  oldAssignee String?
+  newAssignee String?
+  changedBy   User    @relation(fields: [userId], references: [id], name: "AssignmentLogChangedBy")
+
+  // Important relations with explicit names to avoid conflicts, multiple fields are relate to User
+  oldAssigneeUser User?    @relation(fields: [oldAssignee], references: [id], name: "OldAssignee")
+  newAssigneeUser User?    @relation(fields: [newAssignee], references: [id], name: "NewAssignee")
+  userId          String  // This is expected to be the admin's id the one who is changing the assignment
+  createdAt       DateTime @default(now())
+
+  // frequently filtered fields, great for large databases
+  @@index([ticketId])
+  @@index([userId])
+  @@index([oldAssignee])
+  @@index([newAssignee])
+  @@index([createdAt])
 }
 
 model Comment {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   content   String
   ticketId  String
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  ticket    Ticket   @relation(fields: [ticketId], references: [id])
-  createdAt DateTime @default(now())
+  user      User      @relation(fields: [userId], references: [id])
+  ticket    Ticket    @relation(fields: [ticketId], references: [id])
+  createdAt DateTime  @default(now())
+  editedAt  DateTime? // Tracks last edit time
+  deletedAt DateTime? // Soft delete marker
+}
+
+model PrivateComment {
+  id        String    @id @default(cuid())
+  content   String
+  ticketId  String
+  userId    String
+  author    User      @relation(fields: [userId], references: [id])
+  ticket    Ticket    @relation(fields: [ticketId], references: [id])
+  createdAt DateTime  @default(now())
+  editedAt  DateTime? // Tracks last edit time
+  deletedAt DateTime? // Soft delete marker
+}
+
+model Notification {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], name: "UserNotifications")
+  type      NotificationType
+  message   String
+  read      Boolean     @default(false)
+  metadata  Json?       // Flexible data storage (ticketId, etc.)
+  createdAt DateTime    @default(now())
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+  @@index([type])
+}
+
+enum NotificationType {
+  TICKET_ESCALATION
+  TICKET_ASSIGNMENT
+  TICKET_COMPLETED
+  TICKET_COMMENT
+  TICKET_PRIORITY_CHANGE
+  TICKET_RESOLVED
+  TICKET_CLOSED
+  TICKET_REOPENED
 }
 
 enum Role {

@@ -12,30 +12,29 @@ export const TicketStatusEnum = z.enum([
 ]);
 export const TicketPriorityEnum = z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]);
 
+// Shared base schema
+const baseCommentSchema = z.object({
+  content: z.string().min(2),
+  ticketId: z.string(),
+  isPrivate: z.boolean().optional().default(false),
+});
+
 //Comments
-export const commentSchema = z
-  .object({
+export const commentSchema = baseCommentSchema
+  .extend({
     id: z.string(),
-    content: z.string(),
-    ticketId: z.string(),
     userId: z.string(),
     createdAt: z.iso.datetime(),
   })
   .openapi("Comment");
 
 //Create Comments
-export const commentCreateSchema = z
-  .object({
-    content: z.string().min(1),
-    ticketId: z.string(),
-    userId: z.string(), // If you manage auth elsewhere, this might be omitted from request body
-  })
-  .openapi("CommentCreate");
+export const commentCreateSchema = baseCommentSchema.openapi("CommentCreate");
 
 // Update comments
 export const commentUpdateSchema = z
   .object({
-    content: z.string().min(1).optional(),
+    content: z.string().min(1),
   })
   .openapi("CommentUpdate");
 
@@ -65,14 +64,10 @@ export const signupSchema = z
         description: "Account password (min 8 characters)",
         example: "Doe@12345",
       }),
-    wantsToBeAgent: z
-      .boolean()
-      .default(false)
-      .optional()
-      .openapi({
-        description: "Request agent status (requires admin approval)",
-        example: true,
-      }),
+    wantsToBeAgent: z.boolean().default(false).optional().openapi({
+      description: "Request agent status (requires admin approval)",
+      example: true,
+    }),
   })
   .openapi("Signup");
 
@@ -96,39 +91,61 @@ export const createTicketSchema = z
       example:
         "When I try to login, I get an error saying 'Invalid credentials' even though I'm sure my password is correct.",
     }),
-    priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]),
+    priority: TicketPriorityEnum,
   })
   .openapi("TicketCreate");
 
 // Ticket Update Schema
 export const ticketUpdateSchema = z
   .object({
-    status: z
-      .enum(["OPEN", "PENDING", "RESOLVED", "CLOSED"])
-      .optional()
-      .openapi({ example: "RESOLVED" }),
+    status: TicketStatusEnum.optional().openapi({ example: "RESOLVED" }),
     assignedTo: z
       .string()
       .optional()
       .openapi({ example: "cmbkl858h0002u44o97ovg0f1" }),
+    priority: TicketPriorityEnum.optional().openapi({ example: "HIGH" }),
+    // New escalation fields
+    isEscalated: z.boolean().optional().openapi({ example: false }),
+    escalationReason: z
+      .string()
+      .min(10, "Reason must be at least 10 characters")
+      .max(500, "Reason cannot exceed 500 characters")
+      .optional()
+      .openapi({ example: "Need admin approval for refund" }),
+    // For internal use (not from client)
+    escalatedTo: z.string().optional(),
+    escalatedBy: z.string().optional(),
+    escalatedAt: z.date().optional(),
   })
   .openapi("TicketUpdate");
 
 // 📦 Reusable Full Ticket Schema (for response and OpenAPI)
 export const ticketSchema = z
   .object({
-    id: z.string().openapi({example: "cmbkl858h0002u44o97ovg0f1"}),
-    title: z.string().min(5).openapi({example: "Cannot access my account"}),
-    description: z.string().min(10).openapi({example: "Getting 404 error when trying to login"}),
-    status: TicketStatusEnum.default("OPEN").openapi({example: "OPEN"}),
-    priority: TicketPriorityEnum.openapi({example: "HIGH"}),
-    userId: z.string().openapi({example: "cmbkl858h0002u44o97ovdhdhh"}),
-    assignedTo: z.string().nullable().openapi({example: null}),
-    createdAt: z.iso.datetime().openapi({example: "2023-07-22T14:30:00Z"}),
-    updatedAt: z.iso.datetime().openapi({example: "2023-07-22T14:30:00Z"}),
-    comments: z.array(commentSchema).openapi({example: []}),
+    id: z.string().openapi({ example: "cmbkl858h0002u44o97ovg0f1" }),
+    title: z.string().min(5).openapi({ example: "Cannot access my account" }),
+    description: z
+      .string()
+      .min(10)
+      .openapi({ example: "Getting 404 error when trying to login" }),
+    status: TicketStatusEnum.default("OPEN").openapi({ example: "OPEN" }),
+    priority: TicketPriorityEnum.openapi({ example: "HIGH" }),
+    userId: z.string().openapi({ example: "cmbkl858h0002u44o97ovdhdhh" }),
+    assignedTo: z.string().nullable().openapi({ example: null }),
+    createdAt: z.iso.datetime().openapi({ example: "2023-07-22T14:30:00Z" }),
+    updatedAt: z.iso.datetime().openapi({ example: "2023-07-22T14:30:00Z" }),
+    comments: z.array(commentSchema).openapi({ example: [] }),
   })
   .openapi("Ticket");
+
+// Strict version for escalation requests(Not used though it was causing some errors)
+export const ticketEscalationSchema = ticketUpdateSchema
+  .pick({
+    isEscalated: true,
+    escalationReason: true,
+  })
+  .required()
+  .openapi("TicketEscalation");
 
 // array schema for lists
 export const ticketListSchema = z.array(ticketSchema).openapi("TicketList");
@@ -167,6 +184,7 @@ const departmentSchema = z.string().openapi({
   example: "technical-support",
   description: "The department the agent is assigned to",
 });
+
 //Agent profile
 export const agentProfileSchema = z
   .object({

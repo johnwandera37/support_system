@@ -13,7 +13,7 @@ import {
 } from "@/config/constants";
 import { loginSchema } from "@/lib/zodSchema";
 import z, { treeifyError } from "zod/v4";
-import { badRequestFromZod } from "@/utils/zodBadRequest";
+import { badRequestFromZod } from "@/utils/responseUtils";
 
 export async function POST(req: Request) {
   try {

@@ -1,0 +1,242 @@
+import prisma from "@/lib/db";
+import { commentUpdateSchema } from "@/lib/zodSchema";
+import { authorize } from "@/middleware/authorize";
+import { getErrorMessage } from "@/utils/errMsg";
+import { errLog } from "@/utils/logger";
+import { badRequestFromZod, nextErrorResponse } from "@/utils/responseUtils";
+import { NextResponse } from "next/server";
+
+type CommentValidationResult =
+  | { error: string; status: number }
+  | {
+      comment: {
+        id: string;
+        content: string;
+        ticket: {
+          userId: string;
+          assignedTo: string | null;
+        };
+      };
+      isPrivate: boolean;
+    };
+
+const EDIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+// Shared permission checker util
+async function validateCommentAccess(
+  commentId: string,
+  userId: string
+): Promise<CommentValidationResult> {
+  // Check both comment tables
+  const [publicComment, privateComment] = await Promise.all([
+    prisma.comment.findUnique({
+      where: { id: commentId },
+      select: {
+        id: true,
+        userId: true,
+        content: true,
+        createdAt: true,
+        deletedAt: true,
+        ticket: {
+          select: {
+            userId: true,
+            assignedTo: true,
+            status: true,
+            isEscalated: true,
+            escalatedTo: true,
+          },
+        },
+      },
+    }),
+    prisma.privateComment.findUnique({
+      where: { id: commentId },
+      select: {
+        id: true,
+        userId: true,
+        content: true,
+        createdAt: true,
+        deletedAt: true,
+        ticket: {
+          select: {
+            userId: true,
+            assignedTo: true,
+            status: true,
+            isEscalated: true,
+            escalatedTo: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  // Determine which comment we're working with
+  const comment = publicComment || privateComment;
+  const isPrivateComment = !!privateComment; // true if found in private table
+
+  // Basic validation check
+  // Comment not existing
+  if (!comment) return { error: "Comment not found", status: 404 };
+
+  // Commented deleted
+  if (comment.deletedAt)
+    return { error: "Comment already deleted", status: 410 };
+
+  // Check ticket status (only allow modifications on open tickets)
+  if (comment.ticket.status === "CLOSED") {
+    return { error: "Cannot modify comments on closed tickets", status: 403 };
+  }
+
+  // Any user trying to modify other user's comment is forbidden
+  if (comment.userId !== userId){
+     return { error: "You can only modify your own comments", status: 403 };
+  }
+   
+
+  // Strict 15 min to make changes to comment, applies to all for integrity and fair system
+  const commentAge = Date.now() - new Date(comment.createdAt).getTime();
+  if (commentAge > EDIT_WINDOW_MS) {
+    return {
+      error: "Comments can only be modified within 15 minutes of creation",
+      status: 403,
+    };
+  }
+
+  // Additional checks for private comments
+  if (isPrivateComment) {
+    const ticket = comment.ticket;
+
+    // For escalated tickets, only the assigned agent and admin it was escalated to can add private comments
+    if (ticket.isEscalated && ticket.escalatedTo !== userId && userId !== ticket.assignedTo) {
+      return {
+        error:
+          "Only the assigned agent or escalated admin can modify private comments",
+        status: 403,
+      };
+    }
+
+    // For non-escalated tickets, only assigned agent can add private comments
+    if (!ticket.isEscalated && ticket.assignedTo !== userId) {
+      return {
+        error:
+          "Only the assigned agent can modify private comments on this ticket",
+        status: 403,
+      };
+    }
+  }
+
+  // If all checks pass
+  return { comment, isPrivate: !!privateComment }; // isPrivate is Still useful for routing updates
+}
+
+// ================================ < Update comment > ================================
+export async function PUT(
+  req: Request,
+  props: { params: Promise<{ id: string }> }
+) {
+  const params = await props.params; // Get the comment id passed in the endpoint url
+
+  // Authorize users
+  const auth = await authorize(["USER", "AGENT", "ADMIN"])(req);
+  if (!("authorized" in auth)) return auth;
+
+  // Access user id and role
+  const user = auth.user;
+
+  // Validate content from body using zod schema
+  const body = await req.json();
+  const parsed = commentUpdateSchema.safeParse(body);
+
+  // Return a bad request if invalid content provided from body
+  if (!parsed.success) {
+    return badRequestFromZod(parsed.error);
+  }
+
+  // Validate comment access and manipulation by passing the comment id, user id and isPrivate
+  const validation = await validateCommentAccess(params.id, user.id);
+  if ("error" in validation) {
+    return NextResponse.json(
+      { error: validation.error },
+      { status: validation.status }
+    );
+  }
+
+  // Update the correct comment type based on validation result
+  let updatedComment;
+  try {
+    if (validation.isPrivate) {
+      updatedComment = await prisma.privateComment.update({
+        where: { id: params.id },
+        data: {
+          content: parsed.data.content,
+          editedAt: new Date(),
+        },
+      });
+    } else {
+      updatedComment = await prisma.comment.update({
+        where: { id: params.id },
+        data: {
+          content: parsed.data.content,
+          editedAt: new Date(),
+        },
+      });
+    }
+  } catch (error) {
+    return nextErrorResponse("Failed to update comment", 500);
+  }
+
+  return NextResponse.json(updatedComment);
+}
+
+// ================================ < Delete Comment > ================================
+
+// DELETE a comment
+export async function DELETE(
+  req: Request,
+  props: { params: Promise<{ id: string }> }
+) {
+  try {
+    const params = await props.params; // Get the comment id passed in the endpoint url
+
+    // Authorizse deletion of comment based on the aurthor
+    const auth = await authorize(["USER", "AGENT", "ADMIN"])(req);
+    if (!("authorized" in auth)) return auth;
+
+    // Access user info
+    const user = auth.user;
+
+    // Validate comment access and manipulation by passing the comment id and user id
+    const validation = await validateCommentAccess(params.id, user.id);
+    if ("error" in validation) {
+      return NextResponse.json(
+        { error: validation.error },
+        { status: validation.status }
+      );
+    }
+
+    // Soft delete implementation
+    if (validation.isPrivate) {
+      await prisma.privateComment.update({
+        // ✅ Handles private comments
+        where: { id: params.id },
+        data: {
+          deletedAt: new Date(),
+          content: "[deleted by author]",
+        },
+      });
+    } else {
+      await prisma.comment.update({
+        // ✅ Handles public comments
+        where: { id: params.id },
+        data: {
+          deletedAt: new Date(),
+          content: "[deleted by author]",
+        },
+      });
+    }
+
+    return NextResponse.json({ message: "Comment deleted" }, { status: 200 });
+  } catch (error) {
+    errLog("Error in api/comments/[id]", getErrorMessage(error));
+    return nextErrorResponse("Something went wrong", 500);
+  }
+}

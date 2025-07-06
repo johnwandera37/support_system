@@ -7,7 +7,8 @@ import { authorize } from "@/middleware/authorize";
 import { errLog, log } from "@/utils/logger";
 import { getErrorMessage } from "@/utils/errMsg";
 import { createTicketSchema } from "@/lib/zodSchema";
-import { badRequestFromZod } from "@/utils/zodBadRequest";
+import { badRequestFromZod } from "@/utils/responseUtils";
+import { Select } from "@radix-ui/react-select";
 
 export async function GET(req: Request) {
   const auth = await authorize(["USER", "AGENT", "ADMIN"])(req);
@@ -21,7 +22,38 @@ export async function GET(req: Request) {
 
     const tickets = await prisma.ticket.findMany({
       where: isAgent ? {} : { userId: user.id }, //get all tickets for admin/agent, get specific tickets for agent
-      include: { comments: true },
+      include: {
+        comments: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                role: true,
+              },
+            },
+          },
+          where: {
+            deletedAt: null, // Exclude soft-deleted comments
+          },
+        },
+        privateComments: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            author: {
+              select: {
+                id: true,
+                name: true,
+                role: true,
+              },
+            },
+          },
+          where: {
+            deletedAt: null, // Exclude soft-deleted comments
+          },
+        },
+      },
       orderBy: { createdAt: "desc" },
     });
 

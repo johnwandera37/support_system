@@ -4,7 +4,7 @@ import { hashPassword } from "@/lib/hash";
 import { errLog } from "@/utils/logger";
 import { getErrorMessage } from "@/utils/errMsg";
 import { signupSchema } from "@/lib/zodSchema";
-import { badRequestFromZod } from "@/utils/zodBadRequest";
+import { badRequestFromZod } from "@/utils/responseUtils";
 
 //This creates user accounts, by default it has the role USER, unless flag wants to be agent is specified which will need approval from admin
 export async function POST(req: Request) {
