@@ -16,20 +16,20 @@ export default function MyTicketsPage() {
   const { toast } = useToast()
 
   useEffect(() => {
-    // Check if user is logged in
+    // Check if user is logged in and is USER(Only user can create tickets for this system)
     const userData = localStorage.getItem("user")
     if (!userData) {
       router.push("/")
       return
     }
-
+    
     setUser(JSON.parse(userData))
   }, [router])
 
   if (!user) {
     return null // Loading state or redirect will happen
   }
-
+ 
   return (
     <div className="flex min-h-screen flex-col">
       <header className="border-b">

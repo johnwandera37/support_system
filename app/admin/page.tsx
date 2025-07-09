@@ -20,7 +20,7 @@ export default function AdminDashboardPage() {
     }
 
     const parsedUser = JSON.parse(userData)
-    if (parsedUser.role !== "admin") {
+    if (parsedUser.role !== "ADMIN") {
       router.push("/my-tickets")
       return
     }

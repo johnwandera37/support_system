@@ -12,7 +12,6 @@ import {
   REFRESH_TOKEN_MAX_AGE,
 } from "@/config/constants";
 import { loginSchema } from "@/lib/zodSchema";
-import z, { treeifyError } from "zod/v4";
 import { badRequestFromZod } from "@/utils/responseUtils";
 
 export async function POST(req: Request) {

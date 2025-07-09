@@ -14,7 +14,8 @@ import {
 
 type UserNavProps = {
   user: {
-    email: string
+    email: string,
+    name: string,
     role: string
   }
 }
@@ -29,14 +30,24 @@ export function UserNav({ user }: UserNavProps) {
     router.push("/")
   }
 
-  const getInitials = (email: string) => {
-    return email.substring(0, 2).toUpperCase()
+  const getInitials = (name: string, role: string) => {
+  if (name && name.trim()) {
+    const names = name.trim().split(" ");
+    const initials = names
+      .slice(0, 2)
+      .map((n) => n[0]?.toUpperCase())
+      .join("");
+    return initials;
   }
 
+  return role.slice(0, 2).toUpperCase(); // fallback like 'US', 'AD', 'AG'
+};
+
+
   const navigateToDashboard = () => {
-    if (user.role === "admin") {
+    if (user.role === "ADMIN") {
       router.push("/admin")
-    } else if (user.role === "agent") {
+    } else if (user.role === "AGENT") {
       router.push("/dashboard")
     } else {
       router.push("/my-tickets")
@@ -48,7 +59,7 @@ export function UserNav({ user }: UserNavProps) {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-8 w-8">
-            <AvatarFallback>{getInitials(user.email)}</AvatarFallback>
+            <AvatarFallback>{getInitials(user.name, user.role)}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>

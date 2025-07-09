@@ -1,69 +1,75 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { useToast } from "@/hooks/use-toast"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { fetcher } from "@/lib/fetcher";
+import { loginPath } from "@/config/constants";
+import { getErrorMessage } from "@/utils/errMsg";
 
 export function LoginForm() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
-  const { toast } = useToast()
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
+    e.preventDefault();
+    setIsLoading(true);
 
     try {
-      // In a real app, you would validate credentials against your auth system
-      // For demo purposes, we'll simulate a successful login
+      const loginUser = await fetcher(loginPath, {
+        method: "POST",
+        body: { email, password },
+      });
 
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const { user, message } = loginUser;
 
-      // Determine user role (in a real app, this would come from your auth system)
-      const isAgent = email.includes("agent")
-      const isAdmin = email.includes("admin")
-
-      // Store user info (in a real app, you'd use a proper auth solution)
-      localStorage.setItem(
-        "user",
-        JSON.stringify({
-          email,
-          role: isAdmin ? "admin" : isAgent ? "agent" : "user",
-        }),
-      )
+      // save user data locally, for now, will user proper auth
+      localStorage.setItem("user", JSON.stringify(user));
 
       // Redirect based on role
-      if (isAdmin) {
-        router.push("/admin")
-      } else if (isAgent) {
-        router.push("/dashboard")
-      } else {
-        router.push("/my-tickets")
+      console.log("User role", user.role);
+      switch (user.role) {
+        case "ADMIN":
+          router.push("/admin");
+          break;
+        case "AGENT":
+          router.push("/dashboard");
+          break;
+        default:
+          router.push("/my-tickets");
+          break;
       }
 
       toast({
-        title: "Login successful",
+        title: message || "Login successful",
         description: "Welcome to Smart Support",
-      })
+      });
     } catch (error) {
+      const errMsg = getErrorMessage(error);
       toast({
         title: "Login failed",
-        description: "Please check your credentials and try again",
+        description: errMsg || "Please check your credentials and try again",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <Card className="w-full">
@@ -94,12 +100,12 @@ export function LoginForm() {
             />
           </div>
         </CardContent>
-        <CardFooter style={{ marginTop: "20px"}}>
+        <CardFooter style={{ marginTop: "20px" }}>
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Signing in..." : "Sign In"}
           </Button>
         </CardFooter>
       </form>
     </Card>
-  )
+  );
 }

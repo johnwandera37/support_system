@@ -14,6 +14,13 @@ const ORG_EMAIL_PASS = process.env.ORG_EMAIL_PASS || '';
 const ACCESS_TOKEN_MAX_AGE = Number(process.env.ACCESS_TOKEN_MAX_AGE) || 60 * 15; //15 min
 const REFRESH_TOKEN_MAX_AGE = Number(process.env.REFRESH_TOKEN_MAX_AGE) || 60 * 60 * 24 * 7; //7 days
 
+// ENDPOINTS
+const baseURL = process.env.BASE_URL || "http://localhost:3000/";
+const loginPath = "api/auth/login";
+const registerPath = "api/auth/signup";
+const refreshPath = "api/auth/refresh";
+const logoutPath = "api/auth/logout";
+
 export {
     REDIS_HOST,
     REDIS_PORT,
@@ -22,5 +29,10 @@ export {
     ORG_SUPPORT_EMAIL,
     ORG_EMAIL_PASS,
     ACCESS_TOKEN_MAX_AGE,
-    REFRESH_TOKEN_MAX_AGE
+    REFRESH_TOKEN_MAX_AGE,
+    baseURL,
+    loginPath,
+    registerPath,
+    refreshPath,
+    logoutPath
 }

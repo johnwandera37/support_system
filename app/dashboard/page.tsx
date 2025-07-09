@@ -1,35 +1,41 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { TicketList } from "@/components/ticket-list"
-import { UserNav } from "@/components/user-nav"
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TicketList } from "@/components/ticket-list";
+import { UserNav } from "@/components/user-nav";
 
 export default function AgentDashboardPage() {
-  const [user, setUser] = useState<any>(null)
-  const router = useRouter()
+  const [user, setUser] = useState<any>(null);
+  const router = useRouter();
 
   useEffect(() => {
     // Check if user is logged in and is an agent
-    const userData = localStorage.getItem("user")
+    const userData = localStorage.getItem("user");
     if (!userData) {
-      router.push("/")
-      return
+      router.push("/");
+      return;
     }
 
-    const parsedUser = JSON.parse(userData)
-    if (parsedUser.role !== "agent" && parsedUser.role !== "admin") {
-      router.push("/my-tickets")
-      return
+    const parsedUser = JSON.parse(userData);
+    if (parsedUser.role !== "AGENT" && parsedUser.role !== "ADMIN") {
+      router.push("/my-tickets");
+      return;
     }
 
-    setUser(parsedUser)
-  }, [router])
+    setUser(parsedUser);
+  }, [router]);
 
   if (!user) {
-    return null // Loading state or redirect will happen
+    return null; // Loading state or redirect will happen
   }
 
   return (
@@ -47,29 +53,41 @@ export default function AgentDashboardPage() {
           <div className="grid gap-4 md:grid-cols-3">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Open Tickets</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Open Tickets
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">12</div>
-                <p className="text-xs text-muted-foreground">+2 since yesterday</p>
+                <p className="text-xs text-muted-foreground">
+                  +2 since yesterday
+                </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Resolved Today</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Resolved Today
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">8</div>
-                <p className="text-xs text-muted-foreground">+3 from yesterday</p>
+                <p className="text-xs text-muted-foreground">
+                  +3 from yesterday
+                </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Average Response Time</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Average Response Time
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">1.2h</div>
-                <p className="text-xs text-muted-foreground">-15min from last week</p>
+                <p className="text-xs text-muted-foreground">
+                  -15min from last week
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -84,7 +102,9 @@ export default function AgentDashboardPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Open Tickets</CardTitle>
-                  <CardDescription>All tickets that need attention from support agents.</CardDescription>
+                  <CardDescription>
+                    All tickets that need attention from support agents.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <TicketList userRole="agent" filter="open" />
@@ -95,7 +115,9 @@ export default function AgentDashboardPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Assigned to Me</CardTitle>
-                  <CardDescription>Tickets that are currently assigned to you.</CardDescription>
+                  <CardDescription>
+                    Tickets that are currently assigned to you.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <TicketList userRole="agent" filter="assigned" />
@@ -106,7 +128,9 @@ export default function AgentDashboardPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Recently Resolved</CardTitle>
-                  <CardDescription>Tickets that were resolved in the last 7 days.</CardDescription>
+                  <CardDescription>
+                    Tickets that were resolved in the last 7 days.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <TicketList userRole="agent" filter="resolved" />
@@ -117,5 +141,5 @@ export default function AgentDashboardPage() {
         </div>
       </main>
     </div>
-  )
+  );
 }
