@@ -18,11 +18,13 @@ import { useToast } from "@/hooks/use-toast";
 import { fetcher } from "@/lib/fetcher";
 import { loginPath } from "@/config/constants";
 import { getErrorMessage } from "@/utils/errMsg";
+import { Eye, EyeOff } from "lucide-react";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -89,21 +91,51 @@ export function LoginForm() {
               required
             />
           </div>
-          <div className="space-y-2">
+
+          <div className="space-y-2 relative">
             <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="pr-10" // leave space for the icon
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute top-1/2 right-3 transform -translate-y-1/2 text-muted-foreground"
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Add Forgot Password link */}
+          <div className="text-right">
+            <a
+              href="/forgot-password"
+              className="text-sm text-muted-foreground hover:underline"
+            >
+              Forgot Password?
+            </a>
           </div>
         </CardContent>
-        <CardFooter style={{ marginTop: "20px" }}>
+        <CardFooter className="flex flex-col gap-4 mt-4">
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Signing in..." : "Sign In"}
           </Button>
+
+          {/* Add Register link */}
+          <p className="text-sm text-center text-muted-foreground">
+            Don’t have an account?{" "}
+            <a href="/register" className="text-black hover:underline">
+              Register
+            </a>
+          </p>
         </CardFooter>
       </form>
     </Card>
