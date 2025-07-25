@@ -5,7 +5,7 @@ import { errLog } from "@/utils/logger";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
-  // Get cookies from header string
+  // Get cookies from header string 
   const result = getRefreshTokenFromRequest(req);
   if (!result.success) return result.response;
 

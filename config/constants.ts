@@ -16,10 +16,15 @@ const REFRESH_TOKEN_MAX_AGE = Number(process.env.REFRESH_TOKEN_MAX_AGE) || 60 * 
 
 // ENDPOINTS
 const baseURL = process.env.BASE_URL || "http://localhost:3000/";
-const loginPath = "api/auth/login";
-const registerPath = "api/auth/signup";
-const refreshPath = "api/auth/refresh";
-const logoutPath = "api/auth/logout";
+
+export const endpoints = {
+  login: "api/auth/login",
+  register: "api/auth/signup",
+  refresh: "api/auth/refresh",
+  logout: "api/auth/logout",
+  accessToken: "api/auth/access-token",
+  getMe: "api/auth/me",
+};
 
 export {
     REDIS_HOST,
@@ -31,8 +36,4 @@ export {
     ACCESS_TOKEN_MAX_AGE,
     REFRESH_TOKEN_MAX_AGE,
     baseURL,
-    loginPath,
-    registerPath,
-    refreshPath,
-    logoutPath
 }

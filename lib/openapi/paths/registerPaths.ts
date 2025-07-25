@@ -3,8 +3,10 @@ import { registerAgents } from "./admin/agents";
 import { registerAgentRequests } from "./admin/agents-requests";
 import { regigisterUpdateProfile } from "./admin/update-profile";
 import { regigisterUpdateDepartment } from "./admin/updateDepartment";
+import { registerAccessTokenRoute } from "./auth/access";
 import { regigisterLogin } from "./auth/login";
 import { regigisterLogout } from "./auth/logout";
+import { registerMeRoute } from "./auth/me";
 import { regigisterRefresh } from "./auth/refresh";
 import { regigisterSignup } from "./auth/signup";
 import { registerComment } from "./comments/comment";
@@ -25,6 +27,8 @@ export function registerAllPaths() {
     regigisterLogin();
     regigisterRefresh();
     regigisterLogout();
+    registerAccessTokenRoute();
+    registerMeRoute();
 
     // Tickets
     regigisterTickets();

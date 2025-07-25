@@ -22,7 +22,7 @@ export async function POST(req: Request) {
 
     // Look refresh token in Redis with session key (multiple device login functionality)
     const redis = await getRedisClient();
-    const redisKey = `session:${payload.sessionId}`;
+    const redisKey = `session:${payload.sessionId}`; 
     const storedRefreshToken = await redis.get(redisKey);
     if (!storedRefreshToken || storedRefreshToken !== result.refreshToken) {
       return NextResponse.json({ error: "Session expired" }, { status: 403 });

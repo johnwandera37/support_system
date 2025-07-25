@@ -16,8 +16,9 @@ import { useToast } from "@/hooks/use-toast";
 import { fetcher } from "@/lib/fetcher";
 import { getErrorMessage } from "@/utils/errMsg";
 import { signupSchema } from "@/lib/zodSchema";
-import { registerPath } from "@/config/constants";
 import { Eye, EyeOff } from "lucide-react";
+import { endpoints } from "@/config/constants";
+import Loader from "./ui/loader";
 
 export function RegisterForm() {
   const router = useRouter();
@@ -49,7 +50,7 @@ export function RegisterForm() {
       // Validate against Zod schema (optional but clean)
       const parsed = signupSchema.parse(formData);
 
-      const res = await fetcher(registerPath, {
+      const res = await fetcher(endpoints.register, {
         method: "POST",
         body: parsed,
         credentials: "omit",
@@ -149,7 +150,14 @@ export function RegisterForm() {
 
           <CardFooter className="flex flex-col gap-4 mt-4">
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Creating account..." : "Register"}
+              {isLoading ? (
+                <>
+                  <Loader variant="button" size="sm" />
+                  Creating account...
+                </>
+              ) : (
+                "Register"
+              )}
             </Button>
             <p className="text-sm text-center text-muted-foreground">
               Already have an account?{" "}

@@ -1,35 +1,41 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { TicketList } from "@/components/ticket-list"
-import { NewTicketForm } from "@/components/new-ticket-form"
-import { useToast } from "@/hooks/use-toast"
-import { UserNav } from "@/components/user-nav"
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { TicketList } from "@/components/ticket-list";
+import { NewTicketForm } from "@/components/new-ticket-form";
+import { useToast } from "@/hooks/use-toast";
+import { UserNav } from "@/components/user-nav";
+import { useAuth } from "@/context/AuthContext";
 
 export default function MyTicketsPage() {
-  const [showNewTicketForm, setShowNewTicketForm] = useState(false)
-  const [user, setUser] = useState<any>(null)
-  const router = useRouter()
-  const { toast } = useToast()
+  const [showNewTicketForm, setShowNewTicketForm] = useState(false);
+  const { user, isLoading } = useAuth(); // Get user from context
+  const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
     // Check if user is logged in and is USER(Only user can create tickets for this system)
-    const userData = localStorage.getItem("user")
-    if (!userData) {
-      router.push("/")
-      return
+    if (!isLoading) {
+      if (!user) {
+        router.push("/");
+        return;
+      }
     }
-    
-    setUser(JSON.parse(userData))
-  }, [router])
+  }, [user, isLoading, router]);
 
-  if (!user) {
-    return null // Loading state or redirect will happen
+  if (!user || isLoading) {
+    return null; // Loading state or redirect will happen
   }
- 
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="border-b">
@@ -53,16 +59,19 @@ export default function MyTicketsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Submit a New Ticket</CardTitle>
-                <CardDescription>Describe your issue and we'll get back to you as soon as possible.</CardDescription>
+                <CardDescription>
+                  Describe your issue and we'll get back to you as soon as
+                  possible.
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <NewTicketForm
                   onSuccess={() => {
-                    setShowNewTicketForm(false)
+                    setShowNewTicketForm(false);
                     toast({
                       title: "Ticket submitted",
                       description: "We'll get back to you soon",
-                    })
+                    });
                   }}
                 />
               </CardContent>
@@ -73,5 +82,5 @@ export default function MyTicketsPage() {
         </div>
       </main>
     </div>
-  )
+  );
 }

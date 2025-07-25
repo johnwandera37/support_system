@@ -1,35 +1,42 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { TicketList } from "@/components/ticket-list"
-import { UserNav } from "@/components/user-nav"
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TicketList } from "@/components/ticket-list";
+import { UserNav } from "@/components/user-nav";
+import { useAuth } from "@/context/AuthContext";
 
 export default function AdminDashboardPage() {
-  const [user, setUser] = useState<any>(null)
-  const router = useRouter()
+  const { user, isLoading } = useAuth(); // Get user from context
+  const router = useRouter();
 
   useEffect(() => {
     // Check if user is logged in and is an admin
-    const userData = localStorage.getItem("user")
-    if (!userData) {
-      router.push("/")
-      return
+    if (!isLoading) {
+      if (!user) {
+        // If user is null (not authenticated), redirect to login page
+        router.push("/");
+        return;
+      }
+
+      if (user.role !== "ADMIN") {
+        // If user is not admin, redirect to my-tickets
+        router.push("/my-tickets");
+        return;
+      }
     }
+  }, [isLoading, user, router]);
 
-    const parsedUser = JSON.parse(userData)
-    if (parsedUser.role !== "ADMIN") {
-      router.push("/my-tickets")
-      return
-    }
-
-    setUser(parsedUser)
-  }, [router])
-
-  if (!user) {
-    return null // Loading state or redirect will happen
+  if (!user || isLoading) {
+    return null; // Loading state or redirect will happen
   }
 
   return (
@@ -47,25 +54,35 @@ export default function AdminDashboardPage() {
           <div className="grid gap-4 md:grid-cols-4">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Total Tickets</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Total Tickets
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">124</div>
-                <p className="text-xs text-muted-foreground">+8 since last week</p>
+                <p className="text-xs text-muted-foreground">
+                  +8 since last week
+                </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Open Tickets</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Open Tickets
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">18</div>
-                <p className="text-xs text-muted-foreground">+2 since yesterday</p>
+                <p className="text-xs text-muted-foreground">
+                  +2 since yesterday
+                </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Agents Online</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Agents Online
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">5</div>
@@ -74,11 +91,15 @@ export default function AdminDashboardPage() {
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Avg. Resolution Time</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Avg. Resolution Time
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">4.2h</div>
-                <p className="text-xs text-muted-foreground">-30min from last month</p>
+                <p className="text-xs text-muted-foreground">
+                  -30min from last month
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -93,7 +114,9 @@ export default function AdminDashboardPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>All Tickets</CardTitle>
-                  <CardDescription>Overview of all support tickets in the system.</CardDescription>
+                  <CardDescription>
+                    Overview of all support tickets in the system.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <TicketList userRole="admin" filter="all" />
@@ -104,7 +127,9 @@ export default function AdminDashboardPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Escalated Tickets</CardTitle>
-                  <CardDescription>Tickets that have been escalated to admin attention.</CardDescription>
+                  <CardDescription>
+                    Tickets that have been escalated to admin attention.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <TicketList userRole="admin" filter="escalated" />
@@ -115,7 +140,9 @@ export default function AdminDashboardPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Agent Performance</CardTitle>
-                  <CardDescription>Overview of agent performance metrics.</CardDescription>
+                  <CardDescription>
+                    Overview of agent performance metrics.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="text-center py-8 text-muted-foreground">
@@ -128,5 +155,5 @@ export default function AdminDashboardPage() {
         </div>
       </main>
     </div>
-  )
+  );
 }

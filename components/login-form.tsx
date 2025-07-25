@@ -16,9 +16,12 @@ import {
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { fetcher } from "@/lib/fetcher";
-import { loginPath } from "@/config/constants";
 import { getErrorMessage } from "@/utils/errMsg";
 import { Eye, EyeOff } from "lucide-react";
+import { endpoints } from "@/config/constants";
+import { useAuth } from "@/context/AuthContext";
+import { log } from "@/utils/logger";
+import Loader from "./ui/loader";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
@@ -27,24 +30,25 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const { setUser } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const loginUser = await fetcher(loginPath, {
+      // 1. Login Request
+      const loginUser = await fetcher(endpoints.login, {
         method: "POST",
         body: { email, password },
       });
 
       const { user, message } = loginUser;
 
-      // save user data locally, for now, will user proper auth
-      localStorage.setItem("user", JSON.stringify(user));
+      // 2. 🔥 Store user and logged in state in context
+      setUser(user);
 
-      // Redirect based on role
-      console.log("User role", user.role);
+      // 3. Redirect based on role
       switch (user.role) {
         case "ADMIN":
           router.push("/admin");
@@ -126,7 +130,14 @@ export function LoginForm() {
         </CardContent>
         <CardFooter className="flex flex-col gap-4 mt-4">
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "Signing in..." : "Sign In"}
+            {isLoading ? (
+              <>
+                <Loader variant="button" size="sm" />
+                Signing in...
+              </>
+            ) : (
+              "Sign In"
+            )}
           </Button>
 
           {/* Add Register link */}

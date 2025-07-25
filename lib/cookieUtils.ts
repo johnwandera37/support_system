@@ -27,7 +27,7 @@ export function getRefreshTokenFromRequest(req: Request): RefreshTokenResult {
         { status: 401 }
       )
     };
-  }
+  } 
 
   const cookies = parseCookies(cookieHeader);
   const refreshToken = cookies["refresh_token"];

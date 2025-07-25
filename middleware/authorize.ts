@@ -3,6 +3,8 @@ import { getErrorMessage } from "@/utils/errMsg";
 import { errLog } from "@/utils/logger";
 import { NextResponse } from "next/server";
 
+// Verify the jwt and authorize roles
+
 export function authorize(roles: string[] = []) {
   return async function middleware(req: Request) {
     const authHeader = req.headers.get("Authorization");

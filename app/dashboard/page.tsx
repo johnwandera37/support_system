@@ -12,29 +12,28 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TicketList } from "@/components/ticket-list";
 import { UserNav } from "@/components/user-nav";
+import { useAuth } from "@/context/AuthContext";
 
 export default function AgentDashboardPage() {
-  const [user, setUser] = useState<any>(null);
+  const { user, isLoading } = useAuth(); // Get user from context
   const router = useRouter();
 
   useEffect(() => {
     // Check if user is logged in and is an agent
-    const userData = localStorage.getItem("user");
-    if (!userData) {
-      router.push("/");
-      return;
+    if (!isLoading) {
+      if (!user) {
+        router.push("/");
+        return;
+      }
+
+      if (user.role !== "AGENT" && user.role !== "ADMIN") {
+        router.push("/my-tickets");
+        return;
+      }
     }
+  }, [user, isLoading, router]);
 
-    const parsedUser = JSON.parse(userData);
-    if (parsedUser.role !== "AGENT" && parsedUser.role !== "ADMIN") {
-      router.push("/my-tickets");
-      return;
-    }
-
-    setUser(parsedUser);
-  }, [router]);
-
-  if (!user) {
+  if (!user || isLoading) {
     return null; // Loading state or redirect will happen
   }
 
