@@ -18,12 +18,17 @@ const REFRESH_TOKEN_MAX_AGE = Number(process.env.REFRESH_TOKEN_MAX_AGE) || 60 * 
 const baseURL = process.env.BASE_URL || "http://localhost:3000/";
 
 export const endpoints = {
+  // Auth
   login: "api/auth/login",
   register: "api/auth/signup",
   refresh: "api/auth/refresh",
   logout: "api/auth/logout",
   accessToken: "api/auth/access-token",
   getMe: "api/auth/me",
+
+  // Tickets
+  tickets: "api/tickets/",
+  ticket: "api/ticket/",
 };
 
 export {

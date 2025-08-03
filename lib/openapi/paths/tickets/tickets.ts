@@ -22,6 +22,7 @@ export function regigisterTickets() {
     
     Notes:
     - Returns tickets with comments included
+    - Details of the user for example the creator, and assigned users (name, role and id)
     - Ordered by creation date (newest first)
     - Requires authentication
   `,
@@ -45,6 +46,12 @@ export function regigisterTickets() {
                     status: "OPEN",
                     priority: "HIGH",
                     userId: "usr_123",
+                    user: {
+                      id: "cmc52mg030002u4483ir5cppn",
+                      name: "Kakashi Hatake",
+                      role: "USER",
+                    },
+                    assignedAgent: null,
                     assignedTo: null,
                     createdAt: "2023-07-20T08:45:00Z",
                     updatedAt: "2025-06-11T07:44:24.918Z",
@@ -64,7 +71,17 @@ export function regigisterTickets() {
                     status: "OPEN",
                     priority: "HIGH",
                     userId: "cmc52ncqj0003u4485h53x6jq",
+                    user: {
+                      id: "cmc52mg030002u4483ir5cppn",
+                      name: "Kakashi Hatake",
+                      role: "USER",
+                    },
                     assignedTo: "cmbklatoo0003u44ou9og4g64",
+                    assignedAgent: {
+                      id: "cmc52lbxe0001u4480tokis7d",
+                      name: "Izuku Midoria",
+                      role: "AGENT",
+                    },
                     createdAt: "2025-06-20T17:34:43.539Z",
                     updatedAt: "2025-06-20T17:34:43.539Z",
                     comments: [
@@ -115,7 +132,13 @@ export function regigisterTickets() {
                     status: "OPEN",
                     priority: "HIGH",
                     userId: "usr_123",
+                    user: {
+                      id: "usr_123",
+                      name: "Kakashi Hatake",
+                      role: "USER",
+                    },
                     assignedTo: null,
+                    assignedAgent: null,
                     createdAt: "2023-07-20T08:45:00Z",
                     updatedAt: "2025-06-11T07:44:24.918Z",
                     escalationReason: null,
@@ -180,6 +203,7 @@ export function regigisterTickets() {
                   priority: "HIGH",
                   userId: "cmbklc92i0004u44om90g1vnj",
                   assignedTo: null,
+                  assignedAgent: null,
                   createdAt: "2025-06-17T08:23:54.195Z",
                   updatedAt: "2025-06-17T08:23:54.195Z",
                   escalationReason: null,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -10,23 +10,22 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TicketList } from "@/components/ticket-list";
+import { TicketList, TicketListProps } from "@/components/ticket-list";
 import { UserNav } from "@/components/user-nav";
 import { useAuth } from "@/context/AuthContext";
 
 export default function AgentDashboardPage() {
-  const { user, isLoading } = useAuth(); // Get user from context
+  const { user, isLoading, userError } = useAuth(); // Get user from context
   const router = useRouter();
 
   useEffect(() => {
-    // Check if user is logged in and is an agent
     if (!isLoading) {
-      if (!user) {
+      if (!user && userError === "unauthorized") {
         router.push("/");
         return;
       }
 
-      if (user.role !== "AGENT" && user.role !== "ADMIN") {
+      if (user && user.role !== "AGENT") {
         router.push("/my-tickets");
         return;
       }
@@ -34,8 +33,12 @@ export default function AgentDashboardPage() {
   }, [user, isLoading, router]);
 
   if (!user || isLoading) {
-    return null; // Loading state or redirect will happen
+    return null; // loader or redirect
   }
+
+  const commonProps = {
+  userId: user?.id
+};
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -49,96 +52,140 @@ export default function AgentDashboardPage() {
       </header>
       <main className="flex-1 p-4 sm:p-6">
         <div className="mx-auto max-w-6xl space-y-6">
+          {/* Stats Section */}
           <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Open Tickets
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">12</div>
-                <p className="text-xs text-muted-foreground">
-                  +2 since yesterday
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Resolved Today
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">8</div>
-                <p className="text-xs text-muted-foreground">
-                  +3 from yesterday
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Average Response Time
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">1.2h</div>
-                <p className="text-xs text-muted-foreground">
-                  -15min from last week
-                </p>
-              </CardContent>
-            </Card>
+            <StatCard
+              title="Open Tickets"
+              value="12"
+              change="+2 since yesterday"
+            />
+            <StatCard
+              title="Resolved Today"
+              value="8"
+              change="+3 from yesterday"
+            />
+            <StatCard
+              title="Average Response Time"
+              value="1.2h"
+              change="-15min from last week"
+            />
           </div>
 
+          {/* Tabs Section */}
           <Tabs defaultValue="open">
-            <TabsList>
-              <TabsTrigger value="open">Open Tickets</TabsTrigger>
+            <TabsList className="overflow-x-auto flex-wrap sm:flex-nowrap whitespace-nowrap rounded-md bg-muted p-1 gap-1">
+              <TabsTrigger value="open">Open</TabsTrigger>
               <TabsTrigger value="assigned">Assigned to Me</TabsTrigger>
-              <TabsTrigger value="resolved">Recently Resolved</TabsTrigger>
+              <TabsTrigger value="inprogress">In Progress</TabsTrigger>
+              <TabsTrigger value="pending">Pending</TabsTrigger>
+              <TabsTrigger value="escalated">Escalated</TabsTrigger>
+              <TabsTrigger value="resolved">Resolved</TabsTrigger>
+              <TabsTrigger value="closed">Closed</TabsTrigger>
             </TabsList>
-            <TabsContent value="open" className="mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Open Tickets</CardTitle>
-                  <CardDescription>
-                    All tickets that need attention from support agents.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <TicketList userRole="agent" filter="open" />
-                </CardContent>
-              </Card>
-            </TabsContent>
-            <TabsContent value="assigned" className="mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Assigned to Me</CardTitle>
-                  <CardDescription>
-                    Tickets that are currently assigned to you.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <TicketList userRole="agent" filter="assigned" />
-                </CardContent>
-              </Card>
-            </TabsContent>
-            <TabsContent value="resolved" className="mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recently Resolved</CardTitle>
-                  <CardDescription>
-                    Tickets that were resolved in the last 7 days.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <TicketList userRole="agent" filter="resolved" />
-                </CardContent>
-              </Card>
-            </TabsContent>
+
+            <TabsContentBlock
+              value="open"
+              title="Open Tickets"
+              desc="All tickets that need attention from support agents."
+              filter="OPEN"
+            />
+            <TabsContentBlock
+              value="assigned"
+              title="Assigned to Me"
+              desc="Tickets that are currently assigned to you."
+              filter="ASSIGNED"
+              {...commonProps}
+            />
+            <TabsContentBlock
+              value="inprogress"
+              title="In Progress"
+              desc="Tickets currently being worked on."
+              filter="INPROGRESS"
+              {...commonProps}
+            />
+            <TabsContentBlock
+              value="pending"
+              title="Pending"
+              desc="Tickets waiting for customer or admin response."
+              filter="PENDING"
+              {...commonProps}
+            />
+            <TabsContentBlock
+              value="escalated"
+              title="Escalated Tickets"
+              desc="Tickets that were escalated to higher-level support."
+              filter="ESCALATED"
+              {...commonProps}
+            />
+            <TabsContentBlock
+              value="resolved"
+              title="Resolved"
+              desc="Tickets that have been resolved."
+              filter="RESOLVED"
+              {...commonProps}
+            />
+            <TabsContentBlock
+              value="closed"
+              title="Closed Tickets"
+              desc="Tickets that have been fully closed."
+              filter="CLOSED"
+              {...commonProps}
+            />
           </Tabs>
         </div>
       </main>
     </div>
+  );
+}
+
+// Helper Components
+function StatCard({
+  title,
+  value,
+  change,
+}: {
+  title: string;
+  value: string;
+  change: string;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">{value}</div>
+        <p className="text-xs text-muted-foreground">{change}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function TabsContentBlock({
+  value,
+  title,
+  desc,
+  filter,
+  userId,
+}: {
+  value: string;
+  title: string;
+  desc: string;
+  filter: TicketListProps["filter"];
+  userId?: string;
+  userRole?: string;
+}) {
+  return (
+    <TabsContent value={value} className="mt-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>{desc}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <TicketList userRole="AGENT" filter={filter} userId={userId} />
+        </CardContent>
+      </Card>
+    </TabsContent>
   );
 }

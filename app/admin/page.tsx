@@ -15,19 +15,19 @@ import { UserNav } from "@/components/user-nav";
 import { useAuth } from "@/context/AuthContext";
 
 export default function AdminDashboardPage() {
-  const { user, isLoading } = useAuth(); // Get user from context
+  const { user, isLoading, userError } = useAuth(); // Get user from context
   const router = useRouter();
 
   useEffect(() => {
     // Check if user is logged in and is an admin
     if (!isLoading) {
-      if (!user) {
+      if (!user && userError === "unauthorized") {
         // If user is null (not authenticated), redirect to login page
         router.push("/");
         return;
       }
 
-      if (user.role !== "ADMIN") {
+      if (user && user.role !== "ADMIN") {
         // If user is not admin, redirect to my-tickets
         router.push("/my-tickets");
         return;
@@ -108,6 +108,7 @@ export default function AdminDashboardPage() {
             <TabsList>
               <TabsTrigger value="all">All Tickets</TabsTrigger>
               <TabsTrigger value="escalated">Escalated</TabsTrigger>
+              <TabsTrigger value="escalatedToMe">Escalated to me</TabsTrigger>
               <TabsTrigger value="agents">Agent Performance</TabsTrigger>
             </TabsList>
             <TabsContent value="all" className="mt-4">
@@ -119,7 +120,7 @@ export default function AdminDashboardPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <TicketList userRole="admin" filter="all" />
+                  <TicketList userRole="ADMIN" filter="ALL" />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -132,10 +133,28 @@ export default function AdminDashboardPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <TicketList userRole="admin" filter="escalated" />
+                  <TicketList userRole="ADMIN" filter="ESCALATED" />
                 </CardContent>
               </Card>
             </TabsContent>
+            <TabsContent value="escalatedToMe" className="mt-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Escalated to Me</CardTitle>
+                  <CardDescription>
+                    Escalated tickets currently assigned to you.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <TicketList
+                    userRole="ADMIN"
+                    filter="ESCALATED"
+                    userId={user.id}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             <TabsContent value="agents" className="mt-4">
               <Card>
                 <CardHeader>

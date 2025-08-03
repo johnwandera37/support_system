@@ -6,7 +6,7 @@ import { getErrorMessage } from "@/utils/errMsg";
 import { ticketEscalationSchema, ticketUpdateSchema } from "@/lib/zodSchema";
 import { badRequestFromZod, nextErrorResponse } from "@/utils/responseUtils";
 
-// The following API, gets a single ticket by id(all users), updates ticket status and assignedTo properties(admin/agent), deletes a ticket only if admin
+// The following APIs, gets a single ticket by id(all users), updates ticket status and assignedTo properties(admin/agent), deletes a ticket only if admin
 // GET TICKET
 export async function GET(
   req: Request,
@@ -318,7 +318,7 @@ export async function PATCH(
               escalatedBy: currentUser.id,
               escalatedAt: new Date(),
               escalatedTo: adminId,
-              status: "PENDING",
+              status: "ESCALATED", // Ticket status will be updated to ESCALATED
             },
           });
 
@@ -372,9 +372,9 @@ export async function PATCH(
         "assignedTo" in parsed.data &&
         parsed.data.assignedTo !== existingTicket.assignedTo
       ) {
-        // Auto-update status to PENDING when assigning if currently unassigned
+        // Auto-update status to ASSINED when assigning if currently unassigned
         if (!existingTicket.assignedTo) {
-          updateData.status = "PENDING";
+          updateData.status = "ASSIGNED";
         }
 
         // Notify new assignee
@@ -428,6 +428,7 @@ export async function PATCH(
             },
           });
         }
+
         // Notify on resolution/closure
         if (["RESOLVED", "CLOSED"].includes(parsed.data.status)) {
           await tx.notification.create({
@@ -440,6 +441,18 @@ export async function PATCH(
               message: `Your ticket #${
                 params.id
               } has been ${parsed.data.status.toLowerCase()}`,
+              metadata: { ticketId: params.id },
+            },
+          });
+        }
+
+         // Notify when ticket is marked as INPROGRESS
+        if (parsed.data.status === "INPROGRESS") {
+          await tx.notification.create({
+            data: {
+              userId: existingTicket.userId,
+              type: "TICKET_IN_PROGRESS",
+              message: `Your ticket #${params.id} is now in progress`,
               metadata: { ticketId: params.id },
             },
           });

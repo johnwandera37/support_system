@@ -176,6 +176,7 @@ enum NotificationType {
   TICKET_RESOLVED
   TICKET_CLOSED
   TICKET_REOPENED
+  TICKET_IN_PROGRESS
 }
 
 enum Role {
@@ -186,7 +187,10 @@ enum Role {
 
 enum TicketStatus {
   OPEN
+  ASSIGNED
+  INPROGRESS
   PENDING
+  ESCALATED
   RESOLVED
   CLOSED
 }

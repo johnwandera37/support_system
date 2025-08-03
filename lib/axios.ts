@@ -1,6 +1,8 @@
 import { baseURL, endpoints } from "@/config/constants";
+import { toast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/utils/errMsg";
 import { errLog } from "@/utils/logger";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 
 // Create instance
 const api = axios.create({
@@ -32,27 +34,29 @@ api.interceptors.request.use(
       if (data?.token) {
         config.headers["Authorization"] = `Bearer ${data.token}`;
       }
-    } catch {
+    } catch(error) {
       // no token
-      errLog("From axios token injector: No token found");
+      errLog(`From axios token injector: ${getErrorMessage(error)}`);
     }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// 2️⃣ Response interceptor for handling auth errors
+// 2️⃣ Response interceptor for handling auth errors 401s + refresh
 api.interceptors.response.use(
   (response) => response, // normal response from an endpoint
-  async (error) => {
-    const originalRequest = error.config;
-    // Suppose it fails, check 401
+  async (error: AxiosError) => {
+    const originalRequest = error.config as any;
+    // Suppose it fails,
+    const status = error?.response?.status;
+    const isUnauthorized = status === 401;
+    const isForbidden = status === 403;
+
+    const isRefreshRequest = originalRequest?.url?.includes("/refresh");
+
     // Prevent loop if already trying to refresh
-    if (
-      error.response?.status === 401 &&
-      !originalRequest._retry &&
-      !originalRequest.url.includes("/refresh")
-    ) {
+    if (isUnauthorized && !originalRequest._retry && !isRefreshRequest) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -71,9 +75,27 @@ api.interceptors.response.use(
 
         processQueue(null);
         return api(originalRequest); // Retry original request
-      } catch (refreshError) {
+      } catch (refreshError: any) {
+        // const err = refreshError as AxiosError;
         processQueue(refreshError, null);
-        window.location.href = "/"; // force logout, when there is no internet connection, force logout is triggered, find a way to make it right
+
+        const refreshStatus = refreshError?.response?.status;
+        // Handle expired/missing/invalid refresh token (from your backend)
+        if (refreshStatus === 401 || refreshStatus === 403) {
+          toast({
+            title: "Session Expired",
+            description: "Please log in again",
+            variant: "destructive",
+          });
+          window.location.href = "/";
+        } else {
+          errLog("⚠️ Network or unexpected error during token refresh");
+          toast({
+            title: "Network Error",
+            description: "Please check your internet connection.",
+            variant: "destructive",
+          });
+        }
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

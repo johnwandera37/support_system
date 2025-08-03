@@ -18,15 +18,15 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function MyTicketsPage() {
   const [showNewTicketForm, setShowNewTicketForm] = useState(false);
-  const { user, isLoading } = useAuth(); // Get user from context
+  const { user, isLoading, userError } = useAuth(); // Get user from context
   const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check if user is logged in and is USER(Only user can create tickets for this system)
+    // Check if user is logged in and is USER(Only user can create tickets for this system for now)
     if (!isLoading) {
-      if (!user) {
-        router.push("/");
+      if (!user && userError === "unauthorized") {
+        router.push("/"); // redirect unauthenticated users
         return;
       }
     }
@@ -35,6 +35,8 @@ export default function MyTicketsPage() {
   if (!user || isLoading) {
     return null; // Loading state or redirect will happen
   }
+
+  const isUser = user.role === "USER";
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -50,34 +52,54 @@ export default function MyTicketsPage() {
         <div className="mx-auto max-w-5xl space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold tracking-tight">My Tickets</h2>
-            <Button onClick={() => setShowNewTicketForm(!showNewTicketForm)}>
-              {showNewTicketForm ? "Cancel" : "New Ticket"}
-            </Button>
+            {isUser && (
+              <Button onClick={() => setShowNewTicketForm(!showNewTicketForm)}>
+                {showNewTicketForm ? "Cancel" : "New Ticket"}
+              </Button>
+            )}
           </div>
 
-          {showNewTicketForm ? (
+          {isUser ? (
+            showNewTicketForm ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Submit a New Ticket</CardTitle>
+                  <CardDescription>
+                    Describe your issue and we'll get back to you as soon as
+                    possible.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <NewTicketForm
+                    onSuccess={() => {
+                      setShowNewTicketForm(false);
+                      toast({
+                        title: "Ticket submitted",
+                        description: "We'll get back to you soon",
+                      });
+                    }}
+                  />
+                </CardContent>
+              </Card>
+            ) : (
+              <TicketList userRole="USER" />
+            )
+          ) : (
             <Card>
               <CardHeader>
-                <CardTitle>Submit a New Ticket</CardTitle>
+                <CardTitle>Ticket Access Restricted</CardTitle>
                 <CardDescription>
-                  Describe your issue and we'll get back to you as soon as
-                  possible.
+                  Agents and Admins are not allowed to create tickets. This
+                  feature is coming soon!
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <NewTicketForm
-                  onSuccess={() => {
-                    setShowNewTicketForm(false);
-                    toast({
-                      title: "Ticket submitted",
-                      description: "We'll get back to you soon",
-                    });
-                  }}
-                />
+                <div className="text-muted-foreground">
+                  My Tickets' is currently unavailable. Use the navigation menu
+                  to explore other sections or return to the dashboard.
+                </div>
               </CardContent>
             </Card>
-          ) : (
-            <TicketList userRole="user" />
           )}
         </div>
       </main>

@@ -1,4 +1,4 @@
-// The following enables the React client to access the events emitted from backend through the socket client
+// The following enables the React client to access the events emitted from backend through the socket client(Used on client)
 import { io, Socket } from 'socket.io-client';
 
 let socket: Socket;

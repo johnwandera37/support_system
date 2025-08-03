@@ -6,6 +6,9 @@ extendZodWithOpenApi(z);
 // 🔐 Enums to ensure consistency
 export const TicketStatusEnum = z.enum([
   "OPEN",
+  "ASSIGNED",
+  "INPROGRESS",
+  "ESCALATED",
   "PENDING",
   "RESOLVED",
   "CLOSED",
