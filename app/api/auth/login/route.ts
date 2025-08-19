@@ -13,6 +13,7 @@ import {
 } from "@/config/constants";
 import { loginSchema } from "@/lib/zodSchema";
 import { badRequestFromZod } from "@/utils/responseUtils";
+import { handleRedisError } from "@/lib/redisErrorMapperHandler";
 
 export async function POST(req: Request) {
   try {
@@ -56,10 +57,17 @@ export async function POST(req: Request) {
     });
 
     // Set refresh token and user id in redis
-    const redis = await getRedisClient();
-    await redis.set(`session:${sessionId}`, refreshToken, {
-      EX: REFRESH_TOKEN_MAX_AGE,
-    }); // 7 days
+    try {
+      const redis = await getRedisClient();
+      await redis.set(`session:${sessionId}`, refreshToken, {
+        EX: REFRESH_TOKEN_MAX_AGE,
+      }); // 7 days
+    } catch (redisError) {
+      return handleRedisError(redisError, "login handler", {
+        status: 503,
+        message: "Unable to create session. Please try again later.",
+      });
+    }
 
     //Set cookies
     const accessCookie = serialize("access_token", accessToken, {
@@ -101,9 +109,10 @@ export async function POST(req: Request) {
 
     return res;
   } catch (error) {
-    errLog("Login Error: ", getErrorMessage(error));
+    const message = getErrorMessage(error);
+    errLog("Login Error: ", message);
     return NextResponse.json(
-      { error: "Internal Server Error" },
+      { error: message ?? "Internal Server Error" },
       { status: 500 }
     );
   }

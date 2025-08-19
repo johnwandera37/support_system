@@ -22,6 +22,7 @@ import { endpoints } from "@/config/constants";
 import { useAuth } from "@/context/AuthContext";
 import { log } from "@/utils/logger";
 import Loader from "./ui/loader";
+import { setAccessToken } from "@/utils/tokenStore";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
@@ -45,10 +46,18 @@ export function LoginForm() {
 
       const { user, message } = loginUser;
 
-      // 2. 🔥 Store user and logged in state in context
+      // 2. 🔥 Immediately fetch access token + expiry from backend
+    const tokenRes = await fetcher(endpoints.accessToken);
+    log("Token res", tokenRes);
+    const tokenData = await tokenRes;
+    if (tokenData?.token && tokenData?.expiresIn) {
+      setAccessToken(tokenData.token, tokenData.expiresIn);
+    }
+
+      // 3. 🔥 Store user and logged in state in context
       setUser(user);
 
-      // 3. Redirect based on role
+      // 4. Redirect based on role
       switch (user.role) {
         case "ADMIN":
           router.push("/admin");

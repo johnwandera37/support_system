@@ -1,11 +1,13 @@
 import { apiResponse, getRefreshTokenFromRequest } from "@/lib/cookieUtils";
 import { verifyRefreshToken } from "@/lib/jwt";
 import { getRedisClient } from "@/lib/redis";
+import { handleRedisError } from "@/lib/redisErrorMapperHandler";
+import { getErrorMessage } from "@/utils/errMsg";
 import { errLog } from "@/utils/logger";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
-  // Get cookies from header string 
+  // Get cookies from header string
   const result = getRefreshTokenFromRequest(req);
   if (!result.success) return result.response;
 
@@ -14,21 +16,17 @@ export async function POST(req: Request) {
       sessionId: string;
     };
 
-    //delete the refresh token that is in redis
-    const redis = await getRedisClient();
-    if (!redis) {
-      errLog("Redis client not available");
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 }
-      );
-    }
-
     // Delete the refresh token from Redis
     try {
+      //delete the refresh token that is in redis
+      const redis = await getRedisClient();
       await redis.del(`session:${payload.sessionId}`);
-    } catch (redisErr) {
-      errLog("Failed to delete session from Redis", redisErr);
+    } catch (redisError) {
+      errLog(
+        "❌ Logout cleanup: failed to delete session from Redis",
+        getErrorMessage(redisError)
+      );
+
       // Continue with logout even if Redis fails, but log the error
     }
 

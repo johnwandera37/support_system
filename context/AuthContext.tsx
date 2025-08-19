@@ -7,14 +7,12 @@ import {
   useEffect,
   useState,
 } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import api from "@/lib/axios";
 import { endpoints } from "@/config/constants";
 import { getErrorMessage } from "@/utils/errMsg";
 import { errLog, log } from "@/utils/logger";
 import Loader from "@/components/ui/loader";
-import { fetcher } from "@/lib/fetcher";
-import { useToast } from "@/hooks/use-toast";
 
 type User = {
   id: string;
@@ -44,53 +42,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
   const [userError, setUserError] = useState<
     null | "unauthorized" | "network" | "other"
   >(null);
 
   const fetchUser = async () => {
     try {
+      // The get me endpoint runs with the help of the axios interceptor such that it will be able to refresh access token if it has expired
       const res = await api.get(endpoints.getMe);
-      if (!res || !res.data?.user) throw new Error("No user returned");
-
-      setUser(res.data.user);
-      setUserError(null);
-    } catch (error: any) {
-      const message = getErrorMessage(error);
-      errLog("Fetch user error: ", message);
-
-      if (error?.response) {
-        // Server responded but with an error
-        const code = error.response.status;
-
-        if (code === 401 || code === 403) {
-          setUser(null); // Token likely expired
-          setUserError("unauthorized");
-        } else {
-          toast({
-            title: "Server Error",
-            description: message,
-            variant: "destructive",
-          });
-        }
-      } else if (error?.request) {
-        // Network error / No response received
-        setUser(null);
-        setUserError("network");
-        toast({
-          title: "Network Error",
-          description: "Check your connection",
-          variant: "destructive",
-        });
+      if (res?.data?.user) {
+        setUser(res.data.user);
+        setUserError(null);
       } else {
-        // Any other error
         setUser(null);
-        setUserError("other");
-        toast({ title: "Error", description: message, variant: "destructive" });
+        setUserError("unauthorized");
+      }
+    } catch (error: any) {
+      const axiosMessage = getErrorMessage(error);
+      const backendErrMsg = error?.response?.data.error;
+      const status = error?.response?.status;
+      errLog(
+        "Fetch user error: ",
+        `Axios message: ${axiosMessage} Backennd Error Messgae: ${backendErrMsg}`
+      );
+
+      if (status === 401 || status === 404) {
+        setUser(null);
+        setUserError("unauthorized");
       }
 
-      setUser(null); // unauthenticated
+      if (!error.response) {
+        setUser(null);
+        setUserError("network");
+      }
+
+      // Fallback
+      setUser(null);
+      setUserError("other");
     } finally {
       setIsLoading(false);
     }
@@ -120,7 +108,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, setUser, logout, isLoading, userError, setUserError }}>
+    <AuthContext.Provider
+      value={{ user, setUser, logout, isLoading, userError, setUserError }}
+    >
       {isLoading ? <Loader variant="fullscreen" size="lg" /> : children}
     </AuthContext.Provider>
   );
