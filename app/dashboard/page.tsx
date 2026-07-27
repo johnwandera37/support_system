@@ -30,7 +30,7 @@ export default function AgentDashboardPage() {
         return;
       }
     }
-  }, [user, isLoading, router]);
+  }, [user, isLoading, router, userError]);
 
   if (!user || isLoading) {
     return null; // loader or redirect

@@ -24,6 +24,16 @@ import { log } from "@/utils/logger";
 import Loader from "./ui/loader";
 import { setAccessToken } from "@/utils/tokenStore";
 
+interface LoginResponse {
+  user: User; // your existing ambient `User` type from global.d.ts
+  message?: string;
+}
+
+interface AccessTokenResponse {
+  token: string;
+  expiresIn: number;
+}
+
 export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,7 +49,7 @@ export function LoginForm() {
 
     try {
       // 1. Login Request
-      const loginUser = await fetcher(endpoints.login, {
+      const loginUser = await fetcher<LoginResponse>(endpoints.login, {
         method: "POST",
         body: { email, password },
       });
@@ -47,9 +57,9 @@ export function LoginForm() {
       const { user, message } = loginUser;
 
       // 2. 🔥 Immediately fetch access token + expiry from backend
-    const tokenRes = await fetcher(endpoints.accessToken);
+    const tokenRes = await fetcher<AccessTokenResponse>(endpoints.accessToken);
     log("Token res", tokenRes);
-    const tokenData = await tokenRes;
+    const tokenData = tokenRes;
     if (tokenData?.token && tokenData?.expiresIn) {
       setAccessToken(tokenData.token, tokenData.expiresIn);
     }

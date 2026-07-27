@@ -7,7 +7,7 @@ import {
 import { getErrorMessage } from "@/utils/errMsg";
 import { errLog, log, warnLog } from "@/utils/logger";
 import { createClient, RedisClientType } from "redis";
-
+ 
 let client: RedisClientType | null = null;
 let idleTimeout: NodeJS.Timeout | null = null;
 let manuallyQuit = false;
@@ -23,6 +23,10 @@ class RedisError extends Error {
     this.code = code;
     if (stack) this.stack = stack; // wont be using this for now, unless debugging
   }
+}
+
+interface ErrorWithCode extends Error {
+  code?: string;
 }
 
 export async function quitClient() {
@@ -62,7 +66,7 @@ export const getRedisClient = async (): Promise<RedisClientType> => {
     return client;
   }
 
-  if (!REDIS_HOST || !REDIS_PORT || !REDIS_USERNAME || !REDIS_PASSWORD) {
+  if (!REDIS_HOST || !REDIS_PORT) {
     const errorMsg = "Redis configuration is incomplete";
     errLog("❌ " + errorMsg);
     throw new RedisError("REDIS_CONFIG_INCOMPLETE", errorMsg);
@@ -71,8 +75,12 @@ export const getRedisClient = async (): Promise<RedisClientType> => {
   log("🔌 Creating new Redis client...");
 
   client = createClient({
-    username: REDIS_USERNAME,
-    password: REDIS_PASSWORD,
+    ...(REDIS_PASSWORD
+    ? {
+        username: REDIS_USERNAME || undefined,
+        password: REDIS_PASSWORD,
+      }
+    : {}),
     socket: {
       host: REDIS_HOST,
       port: REDIS_PORT,
@@ -99,7 +107,7 @@ export const getRedisClient = async (): Promise<RedisClientType> => {
 
   client.on("error", (err: unknown) => {
     const error = err instanceof Error ? err : new Error(String(err));
-    const code = (error as any).code;
+    const code = (error as ErrorWithCode).code;
 
     // Ignore ECONNRESET if client is in shutdown mode
     if (code === "ECONNRESET" && (!client || !client.isOpen)) {
@@ -123,7 +131,7 @@ export const getRedisClient = async (): Promise<RedisClientType> => {
     log("✅ Redis connection established");
   } catch (err: unknown) {
     const error = err instanceof Error ? err : new Error(String(err));
-    const code = (error as any).code;
+    const code = (error as ErrorWithCode).code;
 
     errLog("Check code from redis on connecting attempt", code);
     const errMsg = getErrorMessage(error); // same as error.message

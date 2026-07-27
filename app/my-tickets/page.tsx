@@ -30,7 +30,7 @@ export default function MyTicketsPage() {
         return;
       }
     }
-  }, [user, isLoading, router]);
+  }, [user, isLoading, router, userError]);
 
   if (!user || isLoading) {
     return null; // Loading state or redirect will happen
@@ -65,7 +65,7 @@ export default function MyTicketsPage() {
                 <CardHeader>
                   <CardTitle>Submit a New Ticket</CardTitle>
                   <CardDescription>
-                    Describe your issue and we'll get back to you as soon as
+                    Describe your issue and we&apos;ll get back to you as soon as
                     possible.
                   </CardDescription>
                 </CardHeader>
@@ -95,7 +95,7 @@ export default function MyTicketsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-muted-foreground">
-                  My Tickets' is currently unavailable. Use the navigation menu
+                  My Tickets&apos; is currently unavailable. Use the navigation menu
                   to explore other sections or return to the dashboard.
                 </div>
               </CardContent>

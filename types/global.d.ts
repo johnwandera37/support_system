@@ -11,7 +11,7 @@ declare global {
     id: string;
     name: string;
     role: UserRole;
-    email?: string;
+    email: string;
   }
 
   interface Comment {

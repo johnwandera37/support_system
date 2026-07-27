@@ -14,13 +14,6 @@ import { getErrorMessage } from "@/utils/errMsg";
 import { errLog, log } from "@/utils/logger";
 import Loader from "@/components/ui/loader";
 
-type User = {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-};
-
 type AuthContextType = {
   user: User | null;
   logout: () => Promise<void>;

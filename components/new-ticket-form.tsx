@@ -51,9 +51,11 @@ export function NewTicketForm({ onSuccess }: NewTicketFormProps) {
     setLoading(true);
 
     try {
-      const ticket = await createTicket(form);
-      const socket = getSocket();
+      // const ticket = await createTicket(form);
+      // const socket = getSocket();
       // socket.emit("create-ticket", ticket); // Optional: can be removed if backend already emits it
+      await createTicket(form);
+      getSocket(); // Optional: can be removed if backend already emits it
 
       // Call the success callback
       onSuccess();

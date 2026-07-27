@@ -48,7 +48,7 @@ export function getRefreshTokenFromRequest(req: Request): RefreshTokenResult {
 
 
 
-interface ApiResponseOptions<T = any> {
+interface ApiResponseOptions<T = unknown> {
   status?: number;
   success?: boolean;
   message?: string;

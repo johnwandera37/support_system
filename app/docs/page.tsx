@@ -1,7 +1,7 @@
 // Swagger UI React Page (Client-side)
 
 "use client";
-import dynamic from "next/dynamic";
+// import dynamic from "next/dynamic";
 import SwaggerUI from "swagger-ui-react";
 import "swagger-ui-react/swagger-ui.css";
 

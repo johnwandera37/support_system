@@ -3,8 +3,9 @@ import prisma from "@/lib/db";
 import { authorize } from "@/middleware/authorize";
 import { errLog } from "@/utils/logger";
 import { getErrorMessage } from "@/utils/errMsg";
-import { ticketEscalationSchema, ticketUpdateSchema } from "@/lib/zodSchema";
+import { ticketUpdateSchema } from "@/lib/zodSchema";
 import { badRequestFromZod, nextErrorResponse } from "@/utils/responseUtils";
+import { Prisma } from "@/lib/generated/prisma/client";
 
 // The following APIs, gets a single ticket by id(all users), updates ticket status and assignedTo properties(admin/agent), deletes a ticket only if admin
 // GET TICKET
@@ -363,7 +364,7 @@ export async function PATCH(
     //8. Start transaction for atomic normal updates
     const result = await prisma.$transaction(async (tx) => {
       // Prepare update data
-      const updateData: any = {
+      const updateData: Prisma.TicketUpdateInput = {
         ...parsed.data,
       };
 

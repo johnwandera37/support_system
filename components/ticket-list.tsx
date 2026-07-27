@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,11 +11,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { TicketReplyForm } from "@/components/ticket-reply-form";
-import { SimpleAlert } from "@/components/simple-alert";
-import api from "@/lib/axios";
-import { endpoints } from "@/config/constants";
-import { errLog, log } from "@/utils/logger";
-import { getErrorMessage } from "@/utils/errMsg";
 import Loader from "./ui/loader";
 import { formatDistanceToNow } from "@/lib/utils";
 import { getPriorityColor, getStatusColor } from "@/utils/helperFunctions";
@@ -29,32 +24,34 @@ export type TicketListProps = {
 
 export function TicketList({ userRole, filter = "ALL", userId }: TicketListProps) {
   const { tickets, loading } = useTickets({
-  userRole, //ADMIN, AGENT OR USER
-  filter, // Ticket status, ALL is for all status
-  userId,
-  page: 1,
-  limit: 10,
-});
-  const [selectedTicket, setSelectedTicket] = useState<any>(null);
+    userRole, //ADMIN, AGENT OR USER
+    filter, // Ticket status, ALL is for all status
+    userId,
+    page: 1,
+    limit: 10,
+  });
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const handleTicketClick = (ticket: any) => {
+  const handleTicketClick = (ticket: Ticket) => {
     setSelectedTicket(ticket);
     setIsDialogOpen(true);
   };
 
-  const handleReplySubmit = (ticketId: string, message: string) => {
+  // , message: string add this arg later
+  const handleReplySubmit = (ticketId: string) => {
     // In a real app, you would send this to your API
     // For demo purposes, we'll update the local state
     const updatedTickets = tickets.map((ticket) => {
       if (ticket.id === ticketId) {
         const user = JSON.parse(localStorage.getItem("user") || "{}");
-        const newMessage = {
-          id: `msg-${Date.now()}`,
-          content: message,
-          sender: userRole,
-          timestamp: new Date().toISOString(),
-        };
+        //will uncomment and proceed later
+        // const newMessage = {
+        //   id: `msg-${Date.now()}`,
+        //   content: message,
+        //   sender: userRole,
+        //   timestamp: new Date().toISOString(),
+        // };
 
         return {
           ...ticket,
@@ -74,7 +71,10 @@ export function TicketList({ userRole, filter = "ALL", userId }: TicketListProps
     });
 
     // setTickets(updatedTickets);
-    setSelectedTicket(updatedTickets.find((t) => t.id === ticketId));
+    const updated = updatedTickets.find((t) => t.id === ticketId);
+    if (updated) {
+      setSelectedTicket(updated);
+    }
   };
 
   // const handleStatusChange = (ticketId: string, newStatus: string) => {
@@ -241,20 +241,18 @@ export function TicketList({ userRole, filter = "ALL", userId }: TicketListProps
                     new Date(a.createdAt).getTime() -
                     new Date(b.createdAt).getTime()
                 )
-                .map((message: any) => {
-                  const isUser =
-                    (message.user?.role || message.author?.role) === "USER";
+                .map((message: Comment | PrivateComment) => {
+                  const person = "author" in message ? message.author : message.user;
+                  const isUser = person?.role === "USER";
 
-                  const name =
-                    message.user?.name || message.author?.name || "Unknown";
+                  const name = person?.name || "Unknown";
                   const timestamp = message.createdAt;
 
                   return (
                     <div
                       key={message.id}
-                      className={`p-3 rounded-lg ${
-                        isUser ? "bg-gray-100 mr-8" : "bg-blue-50 ml-8"
-                      }`}
+                      className={`p-3 rounded-lg ${isUser ? "bg-gray-100 mr-8" : "bg-blue-50 ml-8"
+                        }`}
                     >
                       <div className="flex justify-between items-center mb-1">
                         <span className="font-medium">{name}</span>
@@ -276,9 +274,9 @@ export function TicketList({ userRole, filter = "ALL", userId }: TicketListProps
                     <Button
                       variant="outline"
                       size="sm"
-                      // onClick={() =>
-                      //   handleStatusChange(selectedTicket.id, "escalated")
-                      // }
+                    // onClick={() =>
+                    //   handleStatusChange(selectedTicket.id, "escalated")
+                    // }
                     >
                       In Progress
                     </Button>
@@ -288,9 +286,9 @@ export function TicketList({ userRole, filter = "ALL", userId }: TicketListProps
                     <Button
                       variant="outline"
                       size="sm"
-                      // onClick={() =>
-                      //   handleStatusChange(selectedTicket.id, "escalated")
-                      // }
+                    // onClick={() =>
+                    //   handleStatusChange(selectedTicket.id, "escalated")
+                    // }
                     >
                       Pending
                     </Button>
@@ -300,9 +298,9 @@ export function TicketList({ userRole, filter = "ALL", userId }: TicketListProps
                     <Button
                       variant="outline"
                       size="sm"
-                      // onClick={() =>
-                      //   handleStatusChange(selectedTicket.id, "escalated")
-                      // }
+                    // onClick={() =>
+                    //   handleStatusChange(selectedTicket.id, "escalated")
+                    // }
                     >
                       Escalate to Admin
                     </Button>
@@ -311,9 +309,9 @@ export function TicketList({ userRole, filter = "ALL", userId }: TicketListProps
                   <Button
                     variant="outline"
                     size="sm"
-                    // onClick={() =>
-                    //   handleStatusChange(selectedTicket.id, "resolved")
-                    // }
+                  // onClick={() =>
+                  //   handleStatusChange(selectedTicket.id, "resolved")
+                  // }
                   >
                     Mark as Resolved
                   </Button>
@@ -322,9 +320,9 @@ export function TicketList({ userRole, filter = "ALL", userId }: TicketListProps
                     <Button
                       variant="outline"
                       size="sm"
-                      // onClick={() =>
-                      //   handleStatusChange(selectedTicket.id, "escalated")
-                      // }
+                    // onClick={() =>
+                    //   handleStatusChange(selectedTicket.id, "escalated")
+                    // }
                     >
                       Close
                     </Button>
@@ -347,35 +345,35 @@ export function TicketList({ userRole, filter = "ALL", userId }: TicketListProps
 
 
 // const [showAlert, setShowAlert] = useState<{
-  //   type: "success" | "error" | "warning" | "info";
-  //   message: string;
-  // } | null>(null);
+//   type: "success" | "error" | "warning" | "info";
+//   message: string;
+// } | null>(null);
 
-  // // This will be moved into a hook
-  // useEffect(() => {
-  //   async function fetchTickets() {
-  //     setLoading(true);
-  //     try {
-  //       const res = await api.get(endpoints.tickets);
-  //       log("Fetch tickets res", res);
-  //       if (!res) throw new Error("Failed to fetch tickets");
+// // This will be moved into a hook
+// useEffect(() => {
+//   async function fetchTickets() {
+//     setLoading(true);
+//     try {
+//       const res = await api.get(endpoints.tickets);
+//       log("Fetch tickets res", res);
+//       if (!res) throw new Error("Failed to fetch tickets");
 
-  //       const ticketData = res.data.tickets;
+//       const ticketData = res.data.tickets;
 
-  //       // Apply basic filtering here if needed, for now we’ll just set them
-  //       setTickets(ticketData);
-  //     } catch (error) {
-  //       errLog("Error fetching tickets:", getErrorMessage(error));
-  //       setShowAlert({
-  //         type: "error",
-  //         message: "Failed to load tickets. Please try again later.",
-  //       });
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   }
+//       // Apply basic filtering here if needed, for now we’ll just set them
+//       setTickets(ticketData);
+//     } catch (error) {
+//       errLog("Error fetching tickets:", getErrorMessage(error));
+//       setShowAlert({
+//         type: "error",
+//         message: "Failed to load tickets. Please try again later.",
+//       });
+//     } finally {
+//       setLoading(false);
+//     }
+//   }
 
-  //   fetchTickets();
+//   fetchTickets();
 
-  //   // setTickets(filteredTickets);
-  // }, [userRole, filter]);
+//   // setTickets(filteredTickets);
+// }, [userRole, filter]);

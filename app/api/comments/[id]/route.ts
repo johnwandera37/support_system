@@ -181,6 +181,7 @@ export async function PUT(
       });
     }
   } catch (error) {
+    errLog("Failed to update comment block", error)
     return nextErrorResponse("Failed to update comment", 500);
   }
 

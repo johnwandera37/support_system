@@ -1,5 +1,5 @@
 //Verify JWT to decoded user data from the access token, done separately from authorize middleware
-import { errLog, log } from "@/utils/logger";
+import { errLog } from "@/utils/logger";
 import { verifyAccessToken } from "./jwt";
 import { getErrorMessage } from "@/utils/errMsg";
 import { NextResponse } from "next/server";

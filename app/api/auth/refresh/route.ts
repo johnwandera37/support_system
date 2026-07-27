@@ -50,13 +50,13 @@ export async function POST(req: Request) {
           "Set-Cookie": accessCookie,
         },
       });
-    } catch (redisError: any) {
+    } catch (redisError: unknown) {
       return handleRedisError(redisError, "refresh handler", {
         status: 401,
         message: "Session validation failed",
       });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Handle JWT verification errors
     const errorMessage = getErrorMessage(error);
 

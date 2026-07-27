@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { getUserFromToken } from "@/lib/auth"; // helper to extract user from token
 import { comparePasswords, hashPassword } from "@/lib/hash"; // assuming you have a hash utility
-import { errLog, log } from "@/utils/logger";
+import { errLog } from "@/utils/logger";
 import { getErrorMessage } from "@/utils/errMsg";
 import { updateProfileSchema } from "@/lib/zodSchema";
 import { badRequestFromZod } from "@/utils/responseUtils";

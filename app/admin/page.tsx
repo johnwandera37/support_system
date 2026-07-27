@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -33,7 +33,7 @@ export default function AdminDashboardPage() {
         return;
       }
     }
-  }, [isLoading, user, router]);
+  }, [isLoading, user, router, userError]);
 
   if (!user || isLoading) {
     return null; // Loading state or redirect will happen

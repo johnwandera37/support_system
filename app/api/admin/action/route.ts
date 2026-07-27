@@ -5,6 +5,7 @@ import { transporter } from "@/services/nodemailer";
 import { errLog } from "@/utils/logger";
 import { authorize } from "@/middleware/authorize";
 import { ORG_SUPPORT_EMAIL } from "@/config/constants";
+import { Prisma } from "@/lib/generated/prisma/client"; 
 
 async function sendNotificationEmail(
   email: string,
@@ -147,7 +148,8 @@ export async function POST(req: Request) {
       }
 
       // Transition logic
-      const updates: any = { role: targetRole };
+      const role = targetRole as "AGENT" | "USER"; // safe: already validated above
+      const updates: Prisma.UserUpdateInput = { role };
 
       // If moving to USER, remove agent/admin profile
       if (targetRole === "USER") {

@@ -8,7 +8,11 @@ import {
   setAccessToken,
   clearAccessToken,
 } from "@/utils/tokenStore";
-import axios, { AxiosError } from "axios";
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+
+interface RetryableRequestConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+}
 
 // Create instance
 const api = axios.create({
@@ -17,10 +21,15 @@ const api = axios.create({
 });
 
 let isRefreshing = false; // A flag to prevent infinite refresh loops
-let failedQueue: any[] = [];
+
+interface QueueItem {
+  resolve: (value?: unknown) => void;
+  reject: (reason?: unknown) => void;
+}
+let failedQueue: QueueItem[] = [];
 
 // Queue handler for waiting requests
-const processQueue = (error: any, token: string | null = null) => {
+const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue.forEach((prom) => {
     if (error) prom.reject(error); // Something went wrong, reject all
     else prom.resolve(token); // Token refreshed successfully, retry all
@@ -72,7 +81,7 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response, // normal response from an endpoint
   async (error: AxiosError) => {
-    const originalRequest = error.config as any;
+    const originalRequest = error.config as RetryableRequestConfig;
     // Suppose it fails,
     const errorType = getErrorType(error);
     const isRefreshRequest = originalRequest?.url?.includes("/refresh");
@@ -148,11 +157,15 @@ api.interceptors.response.use(
 
         processQueue(null);
         return api(originalRequest); // Retry original request
-      } catch (refreshError: any) {
+      } catch (refreshError: unknown) {
         processQueue(refreshError, null);
-
-        const backendErrorMsg = refreshError.response.data.error;
-        const refreshErrorType = getErrorType(refreshError);
+        const isAxiosErr = axios.isAxiosError(refreshError);
+        const backendErrorMsg = isAxiosErr
+          ? (refreshError.response?.data as { error?: string } | undefined)?.error
+          : undefined;
+        const refreshErrorType = isAxiosErr
+          ? getErrorType(refreshError)
+          : "OTHER_ERROR";
 
         errLog("Refresh error check: ", refreshError);
         errLog("Refresh error msg from backend: ", backendErrorMsg);

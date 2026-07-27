@@ -1,5 +1,5 @@
 import z from "zod/v4";
-import { authFnResult, commonInternalError, forbidden403OnlyAuthFnResult, registry, serverErr2 } from "../reusableObjects";
+import { authFnResult, forbidden403OnlyAuthFnResult, registry, serverErr2 } from "../reusableObjects";
 import { agentsListSchema } from "@/lib/zodSchema";
 
 export function registerAgents() {

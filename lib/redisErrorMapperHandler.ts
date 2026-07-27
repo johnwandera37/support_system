@@ -3,6 +3,11 @@ import { NextResponse } from "next/server";
 import { getErrorMessage } from "@/utils/errMsg";
 import { errLog } from "@/utils/logger";
 
+interface ErrorWithCode extends Error {
+  code?: string;
+}
+
+ 
 export function handleRedisError(
   err: unknown,
   context: string = "",
@@ -12,7 +17,7 @@ export function handleRedisError(
   }
 ): NextResponse {
   const error = err instanceof Error ? err : new Error(String(err));
-  const code = (error as any).code;
+  const code = (error as ErrorWithCode).code;
   const msg = getErrorMessage(error);
 
   errLog(`❌ Redis error in ${context}:`, `Code=${code}`, `Message=${msg}`);

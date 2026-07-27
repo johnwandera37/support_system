@@ -1,11 +1,11 @@
 // app/api/me/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAccessToken } from "@/lib/jwt";
 import { getUserById } from "@/utils/getUserById";
 import { errLog } from "@/utils/logger";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const cookieStore = cookies();
     const accessToken = (await cookieStore).get("access_token")?.value;
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (err) {
-    errLog("An error occured in me route: fetching user data");
+    errLog("An error occured in me route: fetching user data", err);
     return NextResponse.json({ user: null }, { status: 401 });
   }
 }

@@ -43,7 +43,7 @@ export function SimpleAlert({
     }
   };
 
-  const getVariant = () => {
+  const getVariant = (): React.ComponentProps<typeof Alert>["variant"] => {
     switch (type) {
       case "success":
         return "success";
@@ -59,7 +59,7 @@ export function SimpleAlert({
   };
 
   return (
-    <Alert variant={getVariant() as any} className={`${className} relative`}>
+    <Alert variant={getVariant()} className={`${className} relative`}>
       {getIcon()}
       <div className="flex-1">
         {title && <AlertTitle>{title}</AlertTitle>}

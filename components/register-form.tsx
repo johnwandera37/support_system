@@ -19,6 +19,7 @@ import { signupSchema } from "@/lib/zodSchema";
 import { Eye, EyeOff } from "lucide-react";
 import { endpoints } from "@/config/constants";
 import Loader from "./ui/loader";
+import Link from "next/link";
 
 export function RegisterForm() {
   const router = useRouter();
@@ -50,7 +51,7 @@ export function RegisterForm() {
       // Validate against Zod schema (optional but clean)
       const parsed = signupSchema.parse(formData);
 
-      const res = await fetcher(endpoints.register, {
+      await fetcher(endpoints.register, {
         method: "POST",
         body: parsed,
         credentials: "omit",
@@ -161,9 +162,9 @@ export function RegisterForm() {
             </Button>
             <p className="text-sm text-center text-muted-foreground">
               Already have an account?{" "}
-              <a href="/" className="text-black hover:underline">
+              <Link href="/" className="text-black hover:underline">
                 Sign In
-              </a>
+              </Link>
             </p>
           </CardFooter>
         </form>

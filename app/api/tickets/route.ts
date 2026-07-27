@@ -8,6 +8,7 @@ import { errLog } from "@/utils/logger";
 import { getErrorMessage } from "@/utils/errMsg";
 import { createTicketSchema } from "@/lib/zodSchema";
 import { badRequestFromZod } from "@/utils/responseUtils";
+import { Prisma } from "@/lib/generated/prisma/client";
 
 export async function GET(req: Request) {
   const auth = await authorize(["USER", "AGENT", "ADMIN"])(req);
@@ -27,9 +28,9 @@ export async function GET(req: Request) {
   const skip = (page - 1) * limit;
 
   try {
-    const whereCondition: any = {
+    const whereCondition: Prisma.TicketWhereInput = {
       ...(isAgent ? {} : { userId: user.id }),
-      ...(status ? { status } : {}),
+      ...(status ? { status: status as Prisma.TicketWhereInput["status"] } : {}),
         ...(assignedTo ? { assignedTo } : {}),
     };
 

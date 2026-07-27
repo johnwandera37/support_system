@@ -7,7 +7,7 @@ type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 interface FetcherOptions {
   method?: HttpMethod;
-  body?: any;
+  body?: unknown;
   headers?: Record<string, string>;
   queryParams?: Record<string, string | number | boolean>;
   credentials?: RequestCredentials;
@@ -15,7 +15,7 @@ interface FetcherOptions {
   validateWith?: ZodSchema; // 👈 Optional Zod schema to validate response
 }
 
-export async function fetcher<T = any>(
+export async function fetcher<T = unknown>(
   urlPath: string,
   options: FetcherOptions = {}
 ): Promise<T> {

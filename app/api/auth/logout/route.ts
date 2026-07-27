@@ -1,7 +1,6 @@
 import { apiResponse, getRefreshTokenFromRequest } from "@/lib/cookieUtils";
 import { verifyRefreshToken } from "@/lib/jwt";
 import { getRedisClient } from "@/lib/redis";
-import { handleRedisError } from "@/lib/redisErrorMapperHandler";
 import { getErrorMessage } from "@/utils/errMsg";
 import { errLog } from "@/utils/logger";
 import { NextResponse } from "next/server";

@@ -35,11 +35,25 @@
 //   // display real-time ticket
 // });
 
+
+
+// const io = new SocketIOServer(res.socket.server)
+// // I'd eventually run Socket.IO in its own Node server.
+// Later you'll probably have events like:
+// ticket-message
+// typing
+// user-online
+// agent-online
+// ticket-assigned
+// ticket-closed
+// ticket-reopened
+// notification
+
 import { Server as SocketIOServer } from "socket.io";
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Server as HTTPServer } from "http";
 import type { Socket } from "net";
-import { errLog, log, warnLog } from "@/utils/logger";
+import { log, warnLog } from "@/utils/logger";
 
 // Extend Next.js types to add a custom `io` property on the server
 type NextApiResponseWithSocket = NextApiResponse & {
