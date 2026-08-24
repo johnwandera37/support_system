@@ -1,5 +1,6 @@
 import { z } from "zod/v4";
 import { authFnResult, forbiddenAuthFnResult, registry, serverErr1 } from "../reusableObjects";
+import { adminActionSchema } from "@/lib/zodSchema";
 
 export function registerAdminActionPaths() {
 
@@ -22,26 +23,7 @@ export function registerAdminActionPaths() {
       body: {
         content: {
           "application/json": {
-            schema: z.object({
-              action: z.enum(["approve", "promote", "demote"]).openapi({
-                description: "Type of administrative action to perform",
-                example: "promote",
-              }),
-              userId: z.string().openapi({
-                description: "ID of the target user",
-                example: "clxyz1234567890abcdefgh",
-              }),
-              department: z.string().optional().openapi({
-                description:
-                  "Required for 'approve' action - department for new agent",
-                example: "Technical Support",
-              }),
-              targetRole: z.enum(["AGENT", "USER"]).optional().openapi({
-                description:
-                  "Required for 'demote' action - target role after demotion",
-                example: "AGENT",
-              }),
-            }),
+            schema: adminActionSchema,
             examples: {
               approve: {
                 summary: "Approve agent application",

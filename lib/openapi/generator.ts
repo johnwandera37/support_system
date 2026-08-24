@@ -13,7 +13,7 @@ export const openApiDocument = new OpenApiGeneratorV3(
   openapi: "3.0.0",
   info: {
     title: "Support System API",
-    version: "1.0.0",
+    version: "1.0.1",
     description: "API documentation for the Support System application",
     contact: {
       email: "animdevtests@gmail.com",

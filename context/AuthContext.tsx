@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import api from "@/lib/axios";
 import { endpoints } from "@/config/constants";
 import { getErrorMessage } from "@/utils/errMsg";
-import { errLog, log } from "@/utils/logger";
+import { errLog } from "@/utils/console-logger";
 import Loader from "@/components/ui/loader";
 
 type AuthContextType = {
@@ -93,7 +93,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (publicRoutes.includes(pathname)) {
       setIsLoading(false); // Skip fetching user, since it's a public route
-      return;
+      return; 
     }
 
     // Only fetch user if not on public route

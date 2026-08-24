@@ -1,7 +1,7 @@
 import { endpoints } from "@/config/constants";
 import api from "@/lib/axios";
 import { getErrorMessage } from "@/utils/errMsg";
-import { errLog } from "@/utils/logger";
+import { errLog } from "@/utils/console-logger";
 import { useState, useEffect } from "react";
 import { useAlert } from "@/context/AlertContext";
 

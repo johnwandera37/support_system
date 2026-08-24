@@ -1,26 +1,35 @@
 // This API updates users department seperately for an agent
+// http://localhost:3000/api/admin/agents/cms3p2btm0000thvxuv0c9237/department
 
-import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import { authorize } from "@/middleware/authorize";
-import { errLog } from "@/utils/logger";
-import { getErrorMessage } from "@/utils/errMsg";
+import { authorize } from "@/lib/auth";
+import { endpoints } from "@/config/constants";
+import { apiResponse, nextWarnResponse, nextErrorResponse, badRequestFromZod } from "@/utils/responseUtils";
+import { updateAgentDepartmentSchema } from "@/lib/zodSchema";
+
+const ROUTE = endpoints.updateAgentDepartment;
 
 export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
-  const auth = await authorize(["ADMIN"])(req);
+  const auth = await authorize(["ADMIN"])(req, ROUTE);
   if (!("authorized" in auth)) return auth;
 
- 
+
   const params = await props.params;
   const { id } = params;
-  const { department } = await req.json();
- 
-  if (!department) {
-    return NextResponse.json(
-      { error: "Department is required" },
-      { status: 400 }
-    );
+
+  let body: { department?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return nextWarnResponse("Request body must be valid JSON", 400, { route: ROUTE });
   }
+
+  const parsed = updateAgentDepartmentSchema.safeParse(body);
+  if (!parsed.success) {
+    return badRequestFromZod(parsed.error, 400, { route: ROUTE });
+  }
+
+  const { department } = parsed.data;
 
   try {
     // Ensure user is an approved agent
@@ -33,17 +42,23 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
     });
 
     if (!user) {
-      return NextResponse.json({ error: "Agent not found or not approved" }, { status: 404 });
+      return nextWarnResponse("Agent not found or not approved", 404, { route: ROUTE, meta: { agentId: id } });
     }
+
 
     const updated = await prisma.agentProfile.update({
       where: { userId: id },
       data: { department },
     });
 
-    return NextResponse.json({ success: true, data: updated }, {status: 200});
+    return apiResponse({
+      status: 200,
+      message: "Agent department updated successfully",
+      data: updated,
+      route: ROUTE,
+      logMeta: { agentId: id, department },
+    });
   } catch (error) {
-    errLog("❌ Failed to update agent department", getErrorMessage(error));
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return nextErrorResponse(error, 500, { route: ROUTE, message: "Failed to update agent department" });
   }
 }

@@ -2,18 +2,20 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { comparePasswords } from "@/lib/hash";
 import { signToken, signRefreshToken } from "@/lib/jwt";
-import { serialize } from "cookie"; //serialize data into a cookie header
 import { getRedisClient } from "@/lib/redis";
 import { randomUUID } from "crypto"; //for multiple sessions
-import { errLog } from "@/utils/logger";
-import { getErrorMessage } from "@/utils/errMsg";
 import {
   ACCESS_TOKEN_MAX_AGE,
+  endpoints,
   REFRESH_TOKEN_MAX_AGE,
 } from "@/config/constants";
 import { loginSchema } from "@/lib/zodSchema";
-import { badRequestFromZod } from "@/utils/responseUtils";
+import { badRequestFromZod, nextErrorResponse, nextWarnResponse } from "@/utils/responseUtils";
 import { handleRedisError } from "@/lib/redisErrorMapperHandler";
+import { logInfo } from "@/lib/server/logger";
+import { createAuthCookie } from "@/lib/cookieUtils";
+
+const ROUTE = endpoints.login;
 
 export async function POST(req: Request) {
   try {
@@ -21,24 +23,26 @@ export async function POST(req: Request) {
 
     const parse = loginSchema.safeParse(body);
     if (!parse.success) {
-      return badRequestFromZod(parse.error);
+      return badRequestFromZod(parse.error, 400, { route: ROUTE });
     }
 
     const { email, password } = parse.data;
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      return NextResponse.json(
-        { error: "Invalid credentials" },
-        { status: 401 }
+      return nextWarnResponse(
+        "Invalid credentials",
+        401,
+        { route: ROUTE, detail: "Incorrect email used", meta: { email } }
       );
     }
 
     const isMatch = await comparePasswords(password, user.password);
     if (!isMatch) {
-      return NextResponse.json(
-        { error: "Invalid credentials" },
-        { status: 401 }
+      return nextWarnResponse(
+        "Invalid credentials",
+        401,
+        { route: ROUTE, detail: "Incorrect password", meta: { password } }
       );
     }
 
@@ -63,27 +67,26 @@ export async function POST(req: Request) {
         EX: REFRESH_TOKEN_MAX_AGE,
       }); // 7 days
     } catch (redisError) {
-      return handleRedisError(redisError, "login handler", {
+      return handleRedisError(redisError, ROUTE, {
         status: 503,
         message: "Unable to create session. Please try again later.",
       });
     }
 
     //Set cookies
-    const accessCookie = serialize("access_token", accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
+    const accessCookie = createAuthCookie("access_token", accessToken, {
       maxAge: ACCESS_TOKEN_MAX_AGE, // 15 minutes
-      sameSite: "lax",
     });
 
-    const refreshCookie = serialize("refresh_token", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
+    const refreshCookie = createAuthCookie("refresh_token", refreshToken, {
       maxAge: REFRESH_TOKEN_MAX_AGE, // 7 days
-      sameSite: "lax",
+    });
+
+    logInfo({
+      route: ROUTE,
+      status: 200,
+      message: "Login successful",
+      meta: { userId: user.id },
     });
 
     const res = new NextResponse(
@@ -109,11 +112,6 @@ export async function POST(req: Request) {
 
     return res;
   } catch (error) {
-    const message = getErrorMessage(error);
-    errLog("Login Error: ", message);
-    return NextResponse.json(
-      { error: message ?? "Internal Server Error" },
-      { status: 500 }
-    );
+      return nextErrorResponse(error, 500, { route: ROUTE, message: "Internal Server Error" })
   }
 }

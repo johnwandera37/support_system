@@ -1,7 +1,7 @@
 import { baseURL, endpoints } from "@/config/constants";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errMsg";
-import { errLog, log } from "@/utils/logger";
+import { errLog, log } from "@/utils/console-logger";
 import {
   isTokenExpired,
   getAccessToken,
@@ -88,7 +88,7 @@ api.interceptors.response.use(
     const errorResponse = error;
 
     log("Inspect error response", errorResponse);
-    log("Inspect error type", errorType);
+    log("Inspect error type", errorType); 
 
     // Handle network errors immediately
     if (errorType === "NETWORK_ERROR") {

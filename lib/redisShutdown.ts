@@ -1,4 +1,5 @@
-// This script is responsible for shutting down redis when the app is shutdown
+// This script is responsible for shutting down redis when the app is shutdown,
+//  can be run in dev, just to ensure redis client is closed. Especially the cloud one
 
 import { getErrorMessage } from "@/utils/errMsg";
 import { getRedisClient } from "./redis";
@@ -7,7 +8,7 @@ const shutdown = async () => {
   let client;
 
   try {
-    client = await getRedisClient();
+    client = await getRedisClient(); 
 
     if (client.isOpen) {
       await client.quit();

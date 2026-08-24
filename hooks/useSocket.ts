@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getSocket } from "@/lib/socket";
-import { log } from "@/utils/logger";
+import { log } from "@/utils/console-logger";
 
 export function useTicketSocket() {
   const [newTicket, setNewTicket] = useState<any | null>(null);

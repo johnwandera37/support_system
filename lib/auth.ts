@@ -1,23 +1,49 @@
-//Verify JWT to decoded user data from the access token, done separately from authorize middleware
-import { errLog } from "@/utils/logger";
+//Verify JWT to decoded user data from the access token
 import { verifyAccessToken } from "./jwt";
-import { getErrorMessage } from "@/utils/errMsg";
 import { NextResponse } from "next/server";
+import { nextWarnResponse } from "@/utils/responseUtils";
 
-export async function getUserFromToken(req: Request): Promise<{ id: string; role: string } | NextResponse> {
+type DecodedUser = { id: string; role: string };
+
+// Shared core: extract + verify. Not exported — internal only.
+function resolveToken(req: Request, route: string): DecodedUser | NextResponse {
   const authHeader = req.headers.get("Authorization");
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+     return nextWarnResponse("You need to be logged in to continue.", 401, {
+      route,
+      detail: "Missing or malformed Authorization header",
+    });
   }
 
   const token = authHeader.split(" ")[1];
 
-  try {
-    const decoded = verifyAccessToken(token) as { id: string; role: string };
-    return decoded;
-  } catch (err) {
-    errLog("Invalid token:", getErrorMessage(err));
-    return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-  }
+  const result = verifyAccessToken<DecodedUser>(token, route);
+  if (!result.success) return result.response;
+ 
+  return result.payload;
+}
+
+// get authenticated user
+export async function getUserFromToken(req: Request, route: string): Promise<DecodedUser| NextResponse> {
+  return resolveToken(req, route);
+}
+
+// get authorized user
+export function authorize(roles: string[] = []) {
+  return async function middleware(req: Request, route: string) {
+    const result = resolveToken(req, route);
+
+    if (result instanceof NextResponse) return result; // already a 401
+
+    if (roles.length && !roles.includes(result.role)) {
+       return nextWarnResponse("You don't have permission to do this.", 403, {
+        route,
+        detail: "Role not permitted",
+        meta: { userId: result.id, role: result.role, allowedRoles: roles },
+      });
+    }
+
+    return { authorized: true, user: result };
+  };
 }

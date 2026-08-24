@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/context/AuthContext";
-import { errLog } from "@/utils/logger";
+import { errLog } from "@/utils/console-logger";
 import { getErrorMessage } from "@/utils/errMsg";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";

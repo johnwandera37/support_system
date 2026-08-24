@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { hashPassword } from "@/lib/hash";
-import { errLog } from "@/utils/logger";
-import { getErrorMessage } from "@/utils/errMsg";
 import { signupSchema } from "@/lib/zodSchema";
-import { badRequestFromZod } from "@/utils/responseUtils";
+import { badRequestFromZod, nextErrorResponse, nextInfoResponse, nextWarnResponse } from "@/utils/responseUtils";
+import { endpoints } from "@/config/constants";
+
+const ROUTE = endpoints.register;
 
 //This creates user accounts, by default it has the role USER, unless flag wants to be agent is specified which will need approval from admin
 export async function POST(req: Request) {
@@ -19,11 +19,10 @@ export async function POST(req: Request) {
 
     // Block signups if default admin isn't yet updated
     if (defaultAdminExists) {
-      return NextResponse.json(
-        {
-          error: "Signup is disabled until the admin account is updated.",
-        },
-        { status: 403 }
+      return nextWarnResponse(
+        "Signup is disabled until the admin account is updated.",
+        403,
+        { route: ROUTE, detail: "Default admin credentials not yet updated" }
       );
     }
 
@@ -31,22 +30,23 @@ export async function POST(req: Request) {
 
     const parse = signupSchema.safeParse(body);
     if (!parse.success) {
-     return badRequestFromZod(parse.error);
+      return badRequestFromZod(parse.error, 400, { route: ROUTE });
     }
 
     const { name, email, password, wantsToBeAgent = false } = parse.data;
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
-      return NextResponse.json(
-        { error: "Email already in use" },
-        { status: 409 }
-      );
+      return nextWarnResponse("Email already in use", 409, {
+        route: ROUTE,
+        detail: "Signup rejected — duplicate email",
+        meta: { email },
+      });
     }
 
     const hashed = await hashPassword(password);
 
-    await prisma.user.create({
+    const user = await prisma.user.create({
       data: {
         name,
         email,
@@ -55,13 +55,8 @@ export async function POST(req: Request) {
         role: "USER", // enforced regardless of user input
       },
     });
-
-    return NextResponse.json({ message: "User registered successfully" }, {status: 200});
+    return nextInfoResponse("User registered successfully", 200, { route: ROUTE, detail: "New user created", meta: { userId: user.id } })
   } catch (error) {
-    errLog("Signup error", getErrorMessage(error));
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return nextErrorResponse(error, 500, { route: ROUTE, message: "Signup failed with unhandled exception" })
   }
 }

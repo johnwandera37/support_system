@@ -1,16 +1,19 @@
 import prisma from "@/lib/db";
 import { NextResponse } from "next/server";
-import { authorize } from "@/middleware/authorize";
 import { commentCreateSchema } from "@/lib/zodSchema";
 import { badRequestFromZod, nextErrorResponse } from "@/utils/responseUtils";
-import { errLog } from "@/utils/logger";
+import { errLog } from "@/utils/console-logger";
 import { getErrorMessage } from "@/utils/errMsg";
+import { authorize } from "@/lib/auth";
+import { endpoints } from "@/config/constants";
+
+const ROUTE = endpoints.createOrGetComment;
 
 // Create ticket comment
 export async function POST(req: Request) {
   try {
     // allow USER, AGENT or ADMIN to add comments
-    const auth = await authorize(["USER", "AGENT", "ADMIN"])(req);
+    const auth = await authorize(["USER", "AGENT", "ADMIN"])(req, ROUTE);
     if (!("authorized" in auth)) return auth;
     const user = auth.user;
 

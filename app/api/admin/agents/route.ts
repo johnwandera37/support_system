@@ -2,14 +2,15 @@
 // fetches user according the department assigned to them
 // GET /api/admin/agents?department=support
 
-import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import { authorize } from "@/middleware/authorize";
-import { errLog } from "@/utils/logger";
-import { getErrorMessage } from "@/utils/errMsg";
+import { authorize } from "@/lib/auth";
+import { endpoints } from "@/config/constants";
+import { apiResponse, nextErrorResponse } from "@/utils/responseUtils";
+
+const ROUTE = endpoints.getAgentDepartments;
 
 export async function GET(req: Request) {
-  const auth = await authorize(["ADMIN"])(req);
+  const auth = await authorize(["ADMIN"])(req, ROUTE);
   if (!("authorized" in auth)) return auth;
 
   const { searchParams } = new URL(req.url);
@@ -39,9 +40,15 @@ export async function GET(req: Request) {
       },
     });
 
-    return NextResponse.json({ success: true, data: agents }, {status: 200});
+    return apiResponse({
+      status: 200,
+      message: "Agents fetched successfully",
+      data: agents,
+      route: ROUTE,
+      logMeta: { department: department ?? "all", count: agents.length },
+    });
   } catch (error) {
-    errLog("❌ Failed to fetch agents", getErrorMessage(error));
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return nextErrorResponse(error, 500, { route: ROUTE, message: "Failed to fetch agents" });
   }
 }
+

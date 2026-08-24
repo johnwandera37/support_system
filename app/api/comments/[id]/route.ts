@@ -1,10 +1,13 @@
 import prisma from "@/lib/db";
 import { commentUpdateSchema } from "@/lib/zodSchema";
-import { authorize } from "@/middleware/authorize";
 import { getErrorMessage } from "@/utils/errMsg";
-import { errLog } from "@/utils/logger";
+import { errLog } from "@/utils/console-logger";
 import { badRequestFromZod, nextErrorResponse } from "@/utils/responseUtils";
 import { NextResponse } from "next/server";
+import { authorize } from "@/lib/auth";
+import { endpoints } from "@/config/constants";
+
+const ROUTE = endpoints.updateAgentDepartment;
 
 type CommentValidationResult =
   | { error: string; status: number }
@@ -136,7 +139,7 @@ export async function PUT(
   const params = await props.params; // Get the comment id passed in the endpoint url
 
   // Authorize users
-  const auth = await authorize(["USER", "AGENT", "ADMIN"])(req);
+  const auth = await authorize(["USER", "AGENT", "ADMIN"])(req, ROUTE);
   if (!("authorized" in auth)) return auth;
 
   // Access user id and role
@@ -199,7 +202,7 @@ export async function DELETE(
     const params = await props.params; // Get the comment id passed in the endpoint url
 
     // Authorizse deletion of comment based on the aurthor
-    const auth = await authorize(["USER", "AGENT", "ADMIN"])(req);
+    const auth = await authorize(["USER", "AGENT", "ADMIN"])(req, ROUTE);
     if (!("authorized" in auth)) return auth;
 
     // Access user info

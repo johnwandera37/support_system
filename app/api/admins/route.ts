@@ -1,9 +1,15 @@
+import { endpoints } from "@/config/constants";
+import { authorize } from "@/lib/auth";
 import prisma from "@/lib/db";
 import { NextResponse } from "next/server";
 
 // The following fetches all available admins, then front end can use it to display admins in a drop down
+const ROUTE = endpoints.getAdmins;
 
-export async function GET() {
+export async function GET(req: Request) {
+    const auth = await authorize(["ADMIN", "AGENT"])(req, ROUTE);
+    if (!("authorized" in auth)) return auth;
+
   const admins = await prisma.user.findMany({
     where: { 
       role: "ADMIN",

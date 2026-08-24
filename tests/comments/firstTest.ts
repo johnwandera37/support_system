@@ -2,7 +2,7 @@ import { POST } from "@/app/api/comments/route";
 import prisma from "@/lib/db";
 import { Role } from "@/lib/generated/prisma/client";
 import { signToken } from "@/lib/jwt";
-import { log } from "@/utils/logger";
+import { log } from "@/utils/console-logger";
 
 // For ref purposes
 

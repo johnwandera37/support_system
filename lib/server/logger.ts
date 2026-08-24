@@ -1,8 +1,19 @@
 import fs from "fs";
 import winston from "winston";
 import DailyRotateFile from "winston-daily-rotate-file";
+import * as Sentry from "@sentry/nextjs";
 
 //Advance logging with winston(fs is used, should only be used on server side with routes, otherwise fs will cause errors)
+
+export interface LogMeta {
+  route: string;              // e.g. "/api/auth/signup"
+  status?: number;            // HTTP status you're returning
+  message: string;            // human-readable summary
+  detail?: string;            // extra internal-only context
+  error?: string;             // getErrorMessage(err) output, only for warn/error
+  stack?: string;             // err.stack — full trace, only when available
+  meta?: Record<string, unknown>; // anything extra: userId, email, etc — no passwords/tokens
+}
 
 // ✅ Create necessary folders
 const folders = ["logs", "logs/errors", "logs/combined"];
@@ -10,16 +21,22 @@ folders.forEach((folder) => {
   if (!fs.existsSync(folder)) fs.mkdirSync(folder);
 });
 
+const isProd = process.env.NODE_ENV === "production";
+
 const devFormat = winston.format.combine(
+  winston.format.timestamp({ format: "HH:mm:ss" }),
   winston.format.colorize(),
   winston.format.simple()
 );
 
-const isProd = process.env.NODE_ENV === "production";
+const prodFormat = winston.format.combine(
+  winston.format.timestamp(),
+  winston.format.json()
+);
 
 const logger = winston.createLogger({
   level: isProd ? "info" : "debug",
-  format: isProd ? winston.format.json() : devFormat,
+  format: isProd ? prodFormat : devFormat,
   transports: [
     new winston.transports.Console(), // logs to terminal
 
@@ -44,6 +61,23 @@ const logger = winston.createLogger({
     }),
   ],
 });
+
+
+export const logInfo = (payload: LogMeta) => logger.info(payload);
+export const logWarn = (payload: LogMeta) => logger.warn(payload);
+export const logDebug = (payload: LogMeta) => logger.debug(payload);
+
+// rawError: pass the original caught error (not the stringified one) so
+// Sentry gets a real stack trace, not just a message string.
+export const logError = (payload: Omit<LogMeta, "stack">, rawError?: unknown) => {
+  const stack = rawError instanceof Error ? rawError.stack : undefined;
+  logger.error({ ...payload, stack });
+
+  Sentry.captureException(
+    rawError instanceof Error ? rawError : new Error(payload.message),
+    { extra: { route: payload.route, status: payload.status, ...payload.meta } }
+  );
+};
 
 export default logger;
 

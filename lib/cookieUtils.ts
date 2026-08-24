@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { serialize } from "cookie";
+import { serialize, type SerializeOptions } from "cookie";
+import { logWarn } from "./server/logger";
 
 export function parseCookies(cookieHeader: string | null) {
   if (!cookieHeader) return {};
@@ -15,15 +16,21 @@ type RefreshTokenResult =
   | { success: true; refreshToken: string }
   | { success: false; response: NextResponse };
 
-export function getRefreshTokenFromRequest(req: Request): RefreshTokenResult {
+export function getRefreshTokenFromRequest(req: Request, route: string): RefreshTokenResult {
   const cookieHeader = req.headers.get("cookie");
+  const message = "You need to be logged in to continue.";
   
   // No cookie header at all
   if (!cookieHeader) {
+     logWarn({
+        route,
+        status: 401,
+        message: "Missing authentication cookies",
+      });
     return {
       success: false,
       response: NextResponse.json(
-        { error: "Missing authentication cookies" },
+        { error: message },
         { status: 401 }
       )
     };
@@ -34,10 +41,16 @@ export function getRefreshTokenFromRequest(req: Request): RefreshTokenResult {
   
   // Cookie header exists but no refresh token
   if (!refreshToken) {
+    const message = "Your session has expired. Please log in again.";
+    logWarn({
+        route,
+        status: 401,
+        message: "Missing refresh token",
+      });
     return {
       success: false,
       response: NextResponse.json(
-        { error: "Missing refresh token" },
+        { error: message },
         { status: 401 }
       )
     };
@@ -47,44 +60,26 @@ export function getRefreshTokenFromRequest(req: Request): RefreshTokenResult {
 }
 
 
-
-interface ApiResponseOptions<T = unknown> {
-  status?: number;
-  success?: boolean;
-  message?: string;
-  data?: T;
-  cookiesToClear?: string[];
+/**
+ * Builds a serialized Set-Cookie string for auth tokens (access/refresh/etc.)
+ * with the project's standard security defaults.
+ */
+interface AuthCookieOptions {
+  maxAge: number;
+  overrides?: Partial<SerializeOptions>; // escape hatch for one-off tweaks
 }
 
-export function apiResponse<T>(options: ApiResponseOptions<T> = {}) {
-  const {
-    status = 200,
-    success = true,
-    message = '',
-    data,
-    cookiesToClear = [] // Here, you can pass default tokens to be cleared but leave it empty to simply clear speciied ones
-  } = options;
-
-  const response = NextResponse.json({
-    success,
-    message,
-    ...(data && { data }) // Only include data if provided
-  }, { status });
-
-  // Clear specified cookies
-  cookiesToClear.forEach((token) => {
-    response.headers.append(
-      "Set-Cookie",
-      serialize(token, "", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 0,
-        expires: new Date(0),
-      })
-    );
+export function createAuthCookie(
+  name: string,
+  value: string,
+  { maxAge, overrides }: AuthCookieOptions
+): string {
+  return serialize(name, value, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    sameSite: "lax",
+    maxAge,
+    ...overrides, // is optional and only there in case some future cookie needs a different sameSite/path/et
   });
-
-  return response;
 }

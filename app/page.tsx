@@ -1,5 +1,9 @@
 import { LoginForm } from "@/components/login-form"
 
+// TODO: Cache Components adoption. Refactor this route so this opt-out can be removed.
+// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
+// export const instant = false;
+
 export default function Home() {
   // In a real app, you would check if the user is already authenticated
   // and redirect them to the appropriate dashboard

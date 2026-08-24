@@ -13,7 +13,7 @@ import {
 import { TicketReplyForm } from "@/components/ticket-reply-form";
 import Loader from "./ui/loader";
 import { formatDistanceToNow } from "@/lib/utils";
-import { getPriorityColor, getStatusColor } from "@/utils/helperFunctions";
+import { getPriorityColor, getStatusColor } from "@/lib/utils";
 import { useTickets } from "@/hooks/useTickets";
 
 export type TicketListProps = {

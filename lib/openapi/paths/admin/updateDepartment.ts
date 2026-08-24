@@ -1,6 +1,6 @@
 import z from "zod/v4";
 import { authFnResult, forbiddenAuthFnResult, registry, serverErr1 } from "../reusableObjects";
-import { agentProfileSchema } from "@/lib/zodSchema";
+import { agentProfileSchema, updateAgentDepartmentSchema } from "@/lib/zodSchema";
 
 export function regigisterUpdateDepartment() {
   registry.registerPath({
@@ -28,12 +28,7 @@ export function regigisterUpdateDepartment() {
       body: {
         content: {
           "application/json": {
-            schema: z.object({
-              department: z.string().openapi({
-                description: "New department assignment for the agent",
-                example: "technical-support",
-              }),
-            }),
+            schema: updateAgentDepartmentSchema,
             examples: {
               standardUpdate: {
                 summary: "Standard department update",

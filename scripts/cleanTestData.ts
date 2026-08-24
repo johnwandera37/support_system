@@ -1,6 +1,6 @@
 import prisma from "@/lib/db";
 import { getErrorMessage } from "@/utils/errMsg";
-import { errLog, log } from "@/utils/logger";
+import { errLog, log } from "@/utils/console-logger";
 
 async function cleanupTestUsers() {
   try {

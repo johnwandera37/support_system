@@ -1,4 +1,4 @@
-import { log } from "./logger";
+import { log } from "./console-logger";
 
 export const isNetworkError = (error: unknown): boolean => {
   if (!error) return false;

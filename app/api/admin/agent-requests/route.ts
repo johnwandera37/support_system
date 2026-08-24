@@ -1,13 +1,15 @@
 // This API, fetches all the agents who requested to become agents,
 //  then they can be dispayed in the admin dashboard from front end
 
-import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import { authorize } from "@/middleware/authorize";
-import { errLog } from "@/utils/logger";
+import { authorize } from "@/lib/auth";
+import { endpoints } from "@/config/constants";
+import { apiResponse, nextErrorResponse } from "@/utils/responseUtils";
+
+const ROUTE = endpoints.agentRequests;
 
 export async function GET(req: Request) {
-  const auth = await authorize(["ADMIN"])(req);
+  const auth = await authorize(["ADMIN"])(req, ROUTE);
 
   if (!("authorized" in auth)) return auth;
 
@@ -28,12 +30,14 @@ export async function GET(req: Request) {
       },
     });
 
-    return NextResponse.json({ success: true, data: agentRequests });
+    return apiResponse({
+      status: 200,
+      message: "Agent requests fetched successfully",
+      data: agentRequests,
+      route: ROUTE,
+      logMeta: { count: agentRequests.length },
+    });
   } catch (error) {
-    errLog("❌ Failed to fetch agent requests", error);
-    return NextResponse.json(
-      { success: false, message: "Internal server error" },
-      { status: 500 }
-    );
+    return nextErrorResponse(error, 500, { route: ROUTE, message: "Failed to fetch agent requests" });
   }
 }

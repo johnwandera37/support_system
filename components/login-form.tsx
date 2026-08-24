@@ -20,7 +20,7 @@ import { getErrorMessage } from "@/utils/errMsg";
 import { Eye, EyeOff } from "lucide-react";
 import { endpoints } from "@/config/constants";
 import { useAuth } from "@/context/AuthContext";
-import { log } from "@/utils/logger";
+import { log } from "@/utils/console-logger";
 import Loader from "./ui/loader";
 import { setAccessToken } from "@/utils/tokenStore";
 

@@ -1,3 +1,4 @@
+// A generic get error util, can add more others if needed
 export const getErrorMessage = (error: unknown): string => {
   if (!error) return "Unknown error";
 

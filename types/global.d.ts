@@ -1,5 +1,6 @@
 //The following gets rid of typescript error when globalThis.io is used
 import type { Server as IOServer } from "socket.io";
+import { TICKET_STATUS } from "./config/constants";
 
 declare global {
   // Websoket type
@@ -65,15 +66,5 @@ declare global {
     limit: number;
   }
 
-  export const TICKET_STATUS = {
-  OPEN: "OPEN",
-  ASSIGNED: "ASSIGNED",
-  INPROGRESS: "INPROGRESS",
-  PENDING: "PENDING",
-  ESCALATED: "ESCALATED",
-  RESOLVED: "RESOLVED",
-  CLOSED: "CLOSED",
-} as const;
-
-export type TicketStatus = keyof typeof TICKET_STATUS;
+type TicketStatus = keyof typeof TICKET_STATUS;
 }

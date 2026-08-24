@@ -1,5 +1,5 @@
 // This Registers Zod schemas, a utility that collect definitions which
-// would later be passed to a OpenApiGeneratorV3 or OpenApiGeneratorV31 instance.
+// would later be passed to an OpenApiGeneratorV3 or OpenApiGeneratorV31 instance.
 
 import { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import {

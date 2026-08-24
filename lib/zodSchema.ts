@@ -63,6 +63,7 @@ export const signupSchema = z
       .regex(/[A-Z]/, "Must contain at least one uppercase letter")
       .regex(/[a-z]/, "Must contain at least one lowercase letter")
       .regex(/[0-9]/, "Must contain at least one number")
+      .regex(/[^A-Za-z0-9]/, "Must contain at least one special character")
       .openapi({
         description: "Account password (min 8 characters)",
         example: "Doe@12345",
@@ -229,3 +230,33 @@ export const agentsListSchema = z
     })
   )
   .openapi("AgentsList");
+
+
+// Admin action
+export const adminActionSchema = z.object({
+  action: z.enum(["approve", "promote", "demote"]).openapi({
+    description: "Type of administrative action to perform",
+    example: "promote",
+  }),
+  userId: z.string().min(1, "userId is required").openapi({
+    description: "ID of the target user",
+    example: "clxyz1234567890abcdefgh",
+  }),
+  department: z.string().optional().openapi({
+    description: "Required for 'approve' action - department for new agent",
+    example: "Technical Support",
+  }),
+  targetRole: z.enum(["AGENT", "USER"]).optional().openapi({
+    description: "Required for 'demote' action - target role after demotion",
+    example: "AGENT",
+  }),
+});
+
+
+// Update agent department schema
+export const updateAgentDepartmentSchema = z.object({
+  department: z.string().openapi({
+    description: "New department assignment for the agent",
+    example: "technical-support",
+  }),
+})

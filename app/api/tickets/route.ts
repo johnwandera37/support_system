@@ -3,15 +3,18 @@
 
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import { authorize } from "@/middleware/authorize";
-import { errLog } from "@/utils/logger";
+import { authorize } from "@/lib/auth";
+import { errLog } from "@/utils/console-logger";
 import { getErrorMessage } from "@/utils/errMsg";
 import { createTicketSchema } from "@/lib/zodSchema";
 import { badRequestFromZod } from "@/utils/responseUtils";
 import { Prisma } from "@/lib/generated/prisma/client";
+import { endpoints } from "@/config/constants";
+
+const ROUTE = endpoints.createOrGetComment
 
 export async function GET(req: Request) {
-  const auth = await authorize(["USER", "AGENT", "ADMIN"])(req);
+  const auth = await authorize(["USER", "AGENT", "ADMIN"])(req, ROUTE);
   if (!("authorized" in auth)) return auth;
 
   const user = auth.user; //Get user id and role from decoded access token
@@ -115,7 +118,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const auth = await authorize(["USER"])(req);
+  const auth = await authorize(["USER"])(req, ROUTE);
   if (!("authorized" in auth)) return auth;
   const user = auth.user; //Get user with role "USER" id from decoded access token
   try {

@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import { authorize } from "@/middleware/authorize";
-import { errLog } from "@/utils/logger";
+import { errLog } from "@/utils/console-logger";
 import { getErrorMessage } from "@/utils/errMsg";
 import { ticketUpdateSchema } from "@/lib/zodSchema";
 import { badRequestFromZod, nextErrorResponse } from "@/utils/responseUtils";
 import { Prisma } from "@/lib/generated/prisma/client";
+import { authorize } from "@/lib/auth";
+import { endpoints } from "@/config/constants";
+
+const ROUTE = endpoints.updateOrDeleteComment
 
 // The following APIs, gets a single ticket by id(all users), updates ticket status and assignedTo properties(admin/agent), deletes a ticket only if admin
 // GET TICKET
@@ -14,7 +17,7 @@ export async function GET(
   props: { params: Promise<{ id: string }> }
 ) {
   const params = await props.params;
-  const auth = await authorize(["USER", "AGENT", "ADMIN"])(req);
+  const auth = await authorize(["USER", "AGENT", "ADMIN"])(req, ROUTE);
   if (!("authorized" in auth)) return auth;
   const user = auth.user; //Get user with role "USER" id from decoded access token
 
@@ -107,7 +110,7 @@ export async function PATCH(
   props: { params: Promise<{ id: string }> }
 ) {
   const params = await props.params;
-  const auth = await authorize(["AGENT", "ADMIN", "USER"])(req);
+  const auth = await authorize(["AGENT", "ADMIN", "USER"])(req, ROUTE);
   if (!("authorized" in auth)) return auth;
 
   const currentUser = auth.user;
@@ -490,7 +493,7 @@ export async function DELETE(
   props: { params: Promise<{ id: string }> }
 ) {
   const params = await props.params;
-  const auth = await authorize(["ADMIN"])(req);
+  const auth = await authorize(["ADMIN"])(req, ROUTE);
   if (!("authorized" in auth)) return auth;
 
   try {

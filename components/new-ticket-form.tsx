@@ -17,7 +17,7 @@ import {
 import { createTicket } from "@/lib/api";
 import { getSocket } from "@/lib/socket";
 import { useToast } from "@/hooks/use-toast";
-import { errLog } from "@/utils/logger";
+import { errLog } from "@/utils/console-logger";
 import { getErrorMessage } from "@/utils/errMsg";
 import Loader from "./ui/loader";
 

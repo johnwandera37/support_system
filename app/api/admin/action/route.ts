@@ -1,17 +1,22 @@
 // app/api/admin/actions/route.ts
-import { NextResponse } from "next/server";
+// This API is responsible for approving, promoting or demoting actions
+
 import prisma from "@/lib/db";
 import { transporter } from "@/services/nodemailer";
-import { errLog } from "@/utils/logger";
-import { authorize } from "@/middleware/authorize";
-import { ORG_SUPPORT_EMAIL } from "@/config/constants";
-import { Prisma } from "@/lib/generated/prisma/client"; 
+import { endpoints, ORG_SUPPORT_EMAIL } from "@/config/constants";
+import { Prisma } from "@/lib/generated/prisma/client";
+import { authorize } from "@/lib/auth";
+import { logError } from "@/lib/server/logger";
+import { badRequestFromZod, nextErrorResponse, nextInfoResponse, nextWarnResponse } from "@/utils/responseUtils";
+import { adminActionSchema } from "@/lib/zodSchema";
+
+const ROUTE = endpoints.adminAction;
 
 async function sendNotificationEmail(
   email: string,
   subject: string,
   text: string
-) {
+): Promise<boolean> {
   try {
     await transporter.sendMail({
       from: ORG_SUPPORT_EMAIL,
@@ -19,13 +24,24 @@ async function sendNotificationEmail(
       subject,
       text,
     });
+    return true;
   } catch (error) {
-    errLog("📧Failed to send email:", error);
+    // Is there a retry mechanism, or what happens if email not sent but agent has been updated successfully?
+    logError(
+      {
+        route: ROUTE,
+        status: 502,
+        message: "Failed to send admin action notification email",
+        detail: `to=${email} subject="${subject}"`,
+      },
+      error
+    );
+    return false;
   }
 }
 
 export async function POST(req: Request) {
-  const auth = await authorize(["ADMIN"])(req); //Ensure its admin who can access this action
+  const auth = await authorize(["ADMIN"])(req, ROUTE); //Ensure its admin who can access this action
 
   // If not authorized, `auth` will be a NextResponse with error
   if (!("authorized" in auth)) return auth;
@@ -33,35 +49,42 @@ export async function POST(req: Request) {
   // Optional: Access current user's data
   const currentUser = auth.user;
 
+  let rawBody: unknown;
+  try {
+    rawBody = await req.json();
+  } catch {
+    return nextWarnResponse("Request body must be valid JSON", 400, { route: ROUTE });
+  }
+
+   const parsed = adminActionSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    return badRequestFromZod(parsed.error, 400, { route: ROUTE });
+  }
+
   // Continue with role management logic
-  const { action, userId, department, targetRole } = await req.json();
+  const { action, userId, department, targetRole } = parsed.data;
 
   // Prevent admin self-approval, promotion, or demotion
   if (currentUser.id === userId) {
-    return NextResponse.json(
-      { error: "You cannot approve, promote, or demote yourself." },
-      { status: 403 }
-    );
+    return nextWarnResponse("You cannot approve, promote, or demote yourself.", 403, {
+      route: ROUTE,
+      meta: { userId, action },
+    });
   }
 
-  if (!userId || !["promote", "demote", "approve"].includes(action)) {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-  }
+  let emailSent = true;
 
   try {
     const user = await prisma.user.findUnique({ where: { id: userId } });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return nextWarnResponse("User not found", 404, { route: ROUTE, meta: { userId } });
     }
 
     // APROVE
     if (action === "approve") {
       if (!user.wantsToBeAgent || user.isApproved) {
-        return NextResponse.json(
-          { error: "User is not pending approval" },
-          { status: 400 }
-        );
+        return nextWarnResponse("User is not pending approval", 400, { route: ROUTE, meta: { userId } });
       }
 
       await prisma.user.update({
@@ -77,7 +100,7 @@ export async function POST(req: Request) {
         },
       });
 
-      await sendNotificationEmail(
+      emailSent = await sendNotificationEmail(
         user.email,
         "Agent Application Approved",
         `Hi ${user.name}, your agent application has been approved.`
@@ -87,10 +110,7 @@ export async function POST(req: Request) {
     // PROMOTE
     if (action === "promote") {
       if (user.role === "ADMIN") {
-        return NextResponse.json(
-          { error: "User is already an admin" },
-          { status: 400 }
-        );
+        return nextWarnResponse("User is already an admin", 400, { route: ROUTE, meta: { userId } });
       }
 
       const updated = await prisma.user.update({
@@ -110,14 +130,14 @@ export async function POST(req: Request) {
       }
 
       //also change wantToBeAgent and isApproved to false
-      if(user.isApproved && user.wantsToBeAgent){
+      if (user.isApproved && user.wantsToBeAgent) {
         await prisma.user.update({
-        where: { id: userId },
-        data: { isApproved: false, wantsToBeAgent: false },
-      });
+          where: { id: userId },
+          data: { isApproved: false, wantsToBeAgent: false },
+        });
       }
 
-      await sendNotificationEmail(
+      emailSent = await sendNotificationEmail(
         updated.email,
         "You are now an Admin",
         `Hi ${updated.name}, you have been promoted to Admin.`
@@ -127,28 +147,19 @@ export async function POST(req: Request) {
     // DEMOTE
     if (action === "demote") {
       if (user.role !== "ADMIN" && user.role !== "AGENT") {
-        return NextResponse.json(
-          { error: "User is not an admin or agent" },
-          { status: 400 }
-        );
+        return nextWarnResponse("User is not an admin or agent", 400, { route: ROUTE, meta: { userId } });
       }
 
-      if (!targetRole || !["AGENT", "USER"].includes(targetRole)) {
-        return NextResponse.json(
-          { error: "Invalid or missing targetRole" },
-          { status: 400 }
-        );
+      if (!targetRole) {
+        return nextWarnResponse("Invalid or missing targetRole", 400, { route: ROUTE, meta: { userId } });
       }
 
       if (user.role === "AGENT" && targetRole === "AGENT") {
-        return NextResponse.json(
-          { error: "User is already an agent" },
-          { status: 400 }
-        );
+        return nextWarnResponse("User is already an agent", 400, { route: ROUTE, meta: { userId } });
       }
 
       // Transition logic
-      const role = targetRole as "AGENT" | "USER"; // safe: already validated above
+      const role = targetRole // safe: already validated above from zod
       const updates: Prisma.UserUpdateInput = { role };
 
       // If moving to USER, remove agent/admin profile
@@ -186,23 +197,25 @@ export async function POST(req: Request) {
       });
 
       const subject = `Role Updated`;
-      const bodyMessage = `Hi ${
-        updated.name
-      }, your role has been changed to ${targetRole.toLowerCase()}.`;
+      const bodyMessage = `Hi ${updated.name
+        }, your role has been changed to ${targetRole.toLowerCase()}.`;
 
-      await sendNotificationEmail(user.email, subject, bodyMessage);
+      emailSent = await sendNotificationEmail(user.email, subject, bodyMessage);
     }
 
-    return NextResponse.json({
-      message: `${
-        action.charAt(0).toUpperCase() + action.slice(1)
-      } action completed successfully.`,
-    }, { status: 200 });
+    const actionLabel = action.charAt(0).toUpperCase() + action.slice(1);
+    const message = emailSent
+      ? `${actionLabel} action completed successfully.`
+      : `${actionLabel} action completed successfully, but the notification email failed to send.`;
+
+    return nextInfoResponse(message, 200, {
+      route: ROUTE,
+      meta: { userId, action, emailSent },
+    });
   } catch (error) {
-    errLog(`Action ${action} failed`, error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return nextErrorResponse(error, 500, {
+      route: ROUTE,
+      message: `${action} action failed`,
+    });
   }
 }

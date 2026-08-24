@@ -53,7 +53,7 @@ import { Server as SocketIOServer } from "socket.io";
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Server as HTTPServer } from "http";
 import type { Socket } from "net";
-import { log, warnLog } from "@/utils/logger";
+import { log, warnLog } from "@/utils/console-logger";
 
 // Extend Next.js types to add a custom `io` property on the server
 type NextApiResponseWithSocket = NextApiResponse & {

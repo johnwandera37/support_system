@@ -3,13 +3,13 @@ import { authFnResult, forbidden403OnlyAuthFnResult, registry, serverErr2 } from
 import { agentsListSchema } from "@/lib/zodSchema";
 
 export function registerAgents() {
-//agents
-registry.registerPath({
-  method: "get",
-  path: "/api/admin/agents",
-  tags: ["Admin"],
-  summary: "Get list of approved agents",
-  description: `
+  //agents
+  registry.registerPath({
+    method: "get",
+    path: "/api/admin/agents",
+    tags: ["Admin"],
+    summary: "Get list of approved agents",
+    description: `
     Retrieves all approved agents. Can be filtered by department.
     
     Notes: 
@@ -18,88 +18,92 @@ registry.registerPath({
     - Optional department filter available
     - Token must be provided in the Authorization header as 'Bearer <token>'
   `,
-  security: [{ bearerAuth: [] }],
-  request: {
-    query: z.object({
-      department: z.string().optional().openapi({
-        description: "Filter agents by department",
-        example: "support",
+    security: [{ bearerAuth: [] }],
+    request: {
+      query: z.object({
+        department: z.string().optional().openapi({
+          param: {
+            name: "department",
+            in: "query",
+          },
+          description: "Filter agents by department",
+          example: "support",
+        }),
       }),
-    }),
-  },
-  responses: {
-    200: {
-      description: "List of approved agents",
-      content: {
-        "application/json": {
-          schema: z.object({
-            success: z.boolean().openapi({
-              example: true,
+    },
+    responses: {
+      200: {
+        description: "List of approved agents",
+        content: {
+          "application/json": {
+            schema: z.object({
+              success: z.boolean().openapi({
+                example: true,
+              }),
+              data: agentsListSchema,
             }),
-            data: agentsListSchema,
-          }),
-          examples: {
-            allAgents: {
-              summary: "All agents",
-              value: {
-                success: true,
-                data: [
-                  {
-                    id: "clxyz1234567890abcdefgh",
-                    name: "Jane Smith",
-                    email: "jane@example.com",
-                    role: "AGENT",
-                    createdAt: "2023-07-20T08:45:00Z",
-                    agentProfile: {
-                      department: "support",
+            examples: {
+              allAgents: {
+                summary: "All agents",
+                value: {
+                  success: true,
+                  data: [
+                    {
+                      id: "clxyz1234567890abcdefgh",
+                      name: "Jane Smith",
+                      email: "jane@example.com",
+                      role: "AGENT",
+                      createdAt: "2023-07-20T08:45:00Z",
+                      agentProfile: {
+                        department: "support",
+                      },
                     },
-                  },
-                  {
-                    id: "clxyz9876543210abcdefgh",
-                    name: "John Doe",
-                    email: "john@example.com",
-                    role: "AGENT",
-                    createdAt: "2023-07-18T10:30:00Z",
-                    agentProfile: {
-                      department: "technical",
+                    {
+                      id: "clxyz9876543210abcdefgh",
+                      name: "John Doe",
+                      email: "john@example.com",
+                      role: "AGENT",
+                      createdAt: "2023-07-18T10:30:00Z",
+                      agentProfile: {
+                        department: "technical",
+                      },
                     },
-                  },
-                ],
+                  ],
+                },
               },
-            },
-            filteredAgents: {
-              summary: "Filtered by department",
-              value: {
-                success: true,
-                data: [
-                  {
-                    id: "clxyz1234567890abcdefgh",
-                    name: "Jane Smith",
-                    email: "jane@example.com",
-                    role: "AGENT",
-                    createdAt: "2023-07-20T08:45:00Z",
-                    agentProfile: {
-                      department: "support",
+              filteredAgents: {
+                summary: "Filtered by department",
+                value: {
+                  success: true,
+                  data: [
+                    {
+                      id: "clxyz1234567890abcdefgh",
+                      name: "Jane Smith",
+                      email: "jane@example.com",
+                      role: "AGENT",
+                      createdAt: "2023-07-20T08:45:00Z",
+                      agentProfile: {
+                        department: "support",
+                      },
                     },
-                  },
-                ],
+                  ],
+                },
               },
-            },
-            invalidDepParameter: {
-              summary: "Invalid department parameter",
-              value: {
-                success: true,
-                data: [],
+              invalidDepParameter: {
+                summary: "Invalid department parameter",
+                value: {
+                  success: true,
+                  data: [],
+                },
               },
             },
           },
         },
       },
+      401: authFnResult,
+      403: forbidden403OnlyAuthFnResult,
+      500: serverErr2,
     },
-    401: authFnResult,
-    403: forbidden403OnlyAuthFnResult,
-    500: serverErr2,
-  },
-});
+  });
 
 }
