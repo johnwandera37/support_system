@@ -1,17 +1,16 @@
 // The following API is responsible for getting all tickets based on all users
 // and user(USER) creating a ticket
+// app/api/tickets/
 
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { authorize } from "@/lib/auth";
-import { errLog } from "@/utils/console-logger";
-import { getErrorMessage } from "@/utils/errMsg";
 import { createTicketSchema } from "@/lib/zodSchema";
-import { badRequestFromZod } from "@/utils/responseUtils";
+import { badRequestFromZod, nextErrorResponse, nextWarnResponse } from "@/utils/responseUtils";
 import { Prisma } from "@/lib/generated/prisma/client";
 import { endpoints } from "@/config/constants";
 
-const ROUTE = endpoints.createOrGetComment
+const ROUTE = endpoints.tickets
 
 export async function GET(req: Request) {
   const auth = await authorize(["USER", "AGENT", "ADMIN"])(req, ROUTE);
@@ -34,7 +33,7 @@ export async function GET(req: Request) {
     const whereCondition: Prisma.TicketWhereInput = {
       ...(isAgent ? {} : { userId: user.id }),
       ...(status ? { status: status as Prisma.TicketWhereInput["status"] } : {}),
-        ...(assignedTo ? { assignedTo } : {}),
+      ...(assignedTo ? { assignedTo } : {}),
     };
 
     const tickets = await prisma.ticket.findMany({
@@ -109,11 +108,7 @@ export async function GET(req: Request) {
       { status: 200 }
     );
   } catch (error) {
-    errLog("❌ API GET /tickets error:", getErrorMessage(error));
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
+    return nextErrorResponse(error, 500, { route: ROUTE, message: "Failed to fetch tickets" });
   }
 }
 
@@ -121,14 +116,21 @@ export async function POST(req: Request) {
   const auth = await authorize(["USER"])(req, ROUTE);
   if (!("authorized" in auth)) return auth;
   const user = auth.user; //Get user with role "USER" id from decoded access token
+
+  let body: unknown;
   try {
-    const body = await req.json();
-    const parsed = createTicketSchema.safeParse(body);
+    body = await req.json();
+  } catch {
+    return nextWarnResponse("Request body must be valid JSON", 400, { route: ROUTE });
+  }
 
-    if (!parsed.success) {
-      return badRequestFromZod(parsed.error);
-    }
+  const parsed = createTicketSchema.safeParse(body);
 
+  if (!parsed.success) {
+    return badRequestFromZod(parsed.error, 400, { route: ROUTE });
+  }
+
+  try {
     const ticket = await prisma.ticket.create({
       data: {
         ...parsed.data,
@@ -144,10 +146,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json(ticket, { status: 201 });
   } catch (error) {
-    errLog("❌ API POST /tickets error:", getErrorMessage(error));
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return nextErrorResponse(error, 500, { route: ROUTE, message: "Failed to create ticket" });
   }
 }

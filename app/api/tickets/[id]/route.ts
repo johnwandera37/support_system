@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import { errLog } from "@/utils/console-logger";
-import { getErrorMessage } from "@/utils/errMsg";
 import { ticketUpdateSchema } from "@/lib/zodSchema";
-import { badRequestFromZod, nextErrorResponse } from "@/utils/responseUtils";
+import { badRequestFromZod, nextErrorResponse, nextInfoResponse, nextWarnResponse } from "@/utils/responseUtils";
 import { Prisma } from "@/lib/generated/prisma/client";
 import { authorize } from "@/lib/auth";
 import { endpoints } from "@/config/constants";
+import { getErrorMessage } from "@/utils/errMsg";
 
-const ROUTE = endpoints.updateOrDeleteComment
+const ROUTE = endpoints.ticket
 
 // The following APIs, gets a single ticket by id(all users), updates ticket status and assignedTo properties(admin/agent), deletes a ticket only if admin
 // GET TICKET
@@ -59,13 +58,12 @@ export async function GET(
     });
 
     if (!ticket || (user.role === "USER" && ticket.userId !== user.id)) {
-      return nextErrorResponse("Not found", 404);
+      return nextWarnResponse("Ticket not found", 404, { route: ROUTE, meta: { ticketId: params.id } });
     }
 
     return NextResponse.json(ticket, { status: 200 });
   } catch (error) {
-    errLog("GET TICKET ERROR", getErrorMessage(error));
-    return nextErrorResponse("Internal server error", 500);
+    return nextErrorResponse(error, 500, { route: ROUTE, message: "Failed to fetch ticket" });
   }
 }
 
@@ -89,7 +87,11 @@ export async function GET(
 // 8. Multiple agents to be assigend the same ticket || Multiple admins can be escalated the same ticket, but this is not a priority for now, easy to implement but requires some changes to the schema and the PATCH code
 
 // Helper to find available admin (manual selection)
-async function findAvailableAdmin(adminId?: string): Promise<string> {
+// anything that reaches the catch block afterward is unambiguously 
+// a real DB/system failure, not a business rejection.
+async function findAvailableAdmin(adminId?: string): Promise<string | null> {
+  if (!adminId) return null;
+
   const admin = await prisma.user.findUnique({
     where: {
       id: adminId,
@@ -98,11 +100,7 @@ async function findAvailableAdmin(adminId?: string): Promise<string> {
     select: { id: true },
   });
 
-  if (!admin) {
-    throw new Error("Selected admin not found or not available");
-  }
-
-  return admin.id;
+  return admin?.id ?? null;
 }
 
 export async function PATCH(
@@ -114,9 +112,16 @@ export async function PATCH(
   if (!("authorized" in auth)) return auth;
 
   const currentUser = auth.user;
-  const body = await req.json();
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return nextWarnResponse("Request body must be valid JSON", 400, { route: ROUTE });
+  }
+
   const parsed = ticketUpdateSchema.safeParse(body);
-  if (!parsed.success) return badRequestFromZod(parsed.error);
+  if (!parsed.success) return badRequestFromZod(parsed.error, 400, { route: ROUTE });
 
   try {
     // 1. Fetch ticket with assignment info
@@ -133,13 +138,15 @@ export async function PATCH(
       },
     });
 
-    if (!existingTicket) return nextErrorResponse("Ticket not found", 404);
+    if (!existingTicket) {
+      return nextWarnResponse("Ticket not found", 404, { route: ROUTE, meta: { ticketId: params.id } });
+    }
 
     // 2. USER-SPECIFIC CHECKS
     if (currentUser.role === "USER") {
       // Users can only update priority and only on their own tickets
       if (existingTicket.userId !== currentUser.id) {
-        return nextErrorResponse("You can only update your own tickets", 403);
+        return nextWarnResponse("You can only update your own tickets", 403, { route: ROUTE });
       }
 
       // Users can only update priority, nothing else
@@ -147,7 +154,7 @@ export async function PATCH(
         (key) => key === "priority"
       );
       if (allowedUpdates.length === 0) {
-        return nextErrorResponse("Users can only update ticket priority", 403);
+        return nextWarnResponse("Users can only update ticket priority", 403, { route: ROUTE });
       }
 
       // Prepare update data with only priority
@@ -168,7 +175,7 @@ export async function PATCH(
       parsed.data.status === "CLOSED" &&
       existingTicket.status !== "RESOLVED"
     ) {
-      return nextErrorResponse("Ticket must be RESOLVED before closing", 400);
+      return nextWarnResponse("Ticket must be RESOLVED before closing", 400, { route: ROUTE });
     }
 
     // 4. Handle closed/resolved tickets with flexibility
@@ -177,9 +184,10 @@ export async function PATCH(
         parsed.data.status && ["OPEN", "PENDING"].includes(parsed.data.status);
 
       if (!isReopening) {
-        return nextErrorResponse(
+        return nextWarnResponse(
           "This ticket does not need further actions. It has been closed.",
-          409
+          409,
+          { route: ROUTE }
         );
       }
     }
@@ -198,11 +206,10 @@ export async function PATCH(
 
       if (!isAdminClosing && !isAgentReopening) {
         const assigneeName = existingTicket.assignedAgent?.name || "an agent";
-        return nextErrorResponse(
-          `This ticket does not need further actions. ${
-            isSelf ? "You" : assigneeName
-          } should mark it as closed if completed.`,
-          409
+        return nextWarnResponse(
+          `This ticket does not need further actions. ${isSelf ? "You" : assigneeName} should mark it as closed if completed.`,
+          409,
+          { route: ROUTE }
         );
       }
     }
@@ -215,7 +222,7 @@ export async function PATCH(
       });
 
       if (!targetUser || !["AGENT", "ADMIN"].includes(targetUser.role)) {
-        return nextErrorResponse("Invalid assignee", 400);
+        return nextWarnResponse("Invalid assignee", 400, { route: ROUTE });
       }
 
       const isSameAssignee =
@@ -224,11 +231,12 @@ export async function PATCH(
 
       // Prevent duplicate assignment
       if (isSameAssignee) {
-        return nextErrorResponse(
+        return nextWarnResponse(
           targetUser.role === "AGENT"
             ? "You have already assigned yourself this ticket"
             : `Ticket already assigned to ${targetUser.name}`,
-          400
+          400,
+          { route: ROUTE }
         );
       }
 
@@ -238,17 +246,15 @@ export async function PATCH(
       if (currentUser.role === "AGENT") {
         // Block self reassignment
         if (targetUser.id !== currentUser.id) {
-          return nextErrorResponse(
-            "Agents can only assign tickets to themselves",
-            403
-          );
+          return nextWarnResponse("Agents can only assign tickets to themselves", 403, { route: ROUTE });
         }
 
         // Block an assigned ticket by agent
         if (isAssigned) {
-          return nextErrorResponse(
+          return nextWarnResponse(
             `This ticket is already being handled by ${existingTicket.assignedAgent?.name}`,
-            400
+            400,
+            { route: ROUTE }
           );
         }
       }
@@ -261,16 +267,18 @@ export async function PATCH(
 
         if (isReassigning) {
           if (!existingTicket.isEscalated) {
-            return nextErrorResponse(
+            return nextWarnResponse(
               `The current assignee, ${existingTicket.assignedAgent?.name}, has not escalated this ticket, therefore reassignment is not possible`,
-              400
+              400,
+              { route: ROUTE }
             );
           }
 
           if (existingTicket.escalatedTo !== currentUser.id) {
-            return nextErrorResponse(
+            return nextWarnResponse(
               "Only the admin the ticket was escalated to can reassign it",
-              403
+              403,
+              { route: ROUTE }
             );
           }
         }
@@ -285,33 +293,41 @@ export async function PATCH(
       "priority" in parsed.data &&
       parsed.data.priority !== existingTicket.priority
     ) {
-      return nextErrorResponse("Only users can update ticket priority", 403);
+      return nextWarnResponse("Only users can update ticket priority", 403, { route: ROUTE });
     }
 
     // 7. Escalation logic
     if (parsed.data.isEscalated) {
       if (existingTicket.isEscalated) {
-        return nextErrorResponse(
+        return nextWarnResponse(
           "This ticket has been escalated to an admin and cannot be escalated again",
-          409
+          409,
+          { route: ROUTE }
         );
       }
       if (existingTicket.status !== "PENDING") {
-        return nextErrorResponse("Only PENDING tickets can be escalated", 400);
+        return nextWarnResponse("Only PENDING tickets can be escalated", 400, { route: ROUTE });
       }
 
       if (!parsed.data.escalationReason) {
-        return nextErrorResponse("Escalation reason is required", 400);
+        return nextWarnResponse("Escalation reason is required", 400, { route: ROUTE });
       }
 
       if (!parsed.data.escalatedTo) {
-        return nextErrorResponse("Please select an admin to escalate to", 400);
+        return nextWarnResponse("Please select an admin to escalate to", 400, { route: ROUTE });
       }
 
       // Find available admin
-      try {
-        const adminId = await findAvailableAdmin(parsed.data.escalatedTo);
+      const adminId = await findAvailableAdmin(parsed.data.escalatedTo);
 
+      if (!adminId) {
+        return nextWarnResponse("Selected admin not found or not available", 404, {
+          route: ROUTE,
+          meta: { escalatedTo: parsed.data.escalatedTo },
+        });
+      }
+
+      try {
         const updatedTicket = await prisma.$transaction(async (tx) => {
           // 1. Update ticket first
           const updatedTicket = await tx.ticket.update({
@@ -359,8 +375,7 @@ export async function PATCH(
         // ✅ Return a valid response from the handler
         return NextResponse.json(updatedTicket, { status: 200 });
       } catch (error) {
-        // error will be thrown from findAvailableAdmin
-        return nextErrorResponse(getErrorMessage(error), 400);
+         return nextErrorResponse(error, 500, { route: ROUTE, message: "Failed to escalate ticket" });
       }
     }
 
@@ -442,15 +457,14 @@ export async function PATCH(
                 parsed.data.status === "RESOLVED"
                   ? "TICKET_RESOLVED"
                   : "TICKET_CLOSED",
-              message: `Your ticket #${
-                params.id
-              } has been ${parsed.data.status.toLowerCase()}`,
+              message: `Your ticket #${params.id
+                } has been ${parsed.data.status.toLowerCase()}`,
               metadata: { ticketId: params.id },
             },
           });
         }
 
-         // Notify when ticket is marked as INPROGRESS
+        // Notify when ticket is marked as INPROGRESS
         if (parsed.data.status === "INPROGRESS") {
           await tx.notification.create({
             data: {
@@ -482,8 +496,7 @@ export async function PATCH(
 
     return NextResponse.json(result);
   } catch (error) {
-    errLog("TICKET PATCH ERROR", getErrorMessage(error));
-    return nextErrorResponse("Internal server error", 500);
+    return nextErrorResponse(error, 500, { route: ROUTE, message: "Failed to update ticket" });
   }
 }
 
@@ -498,9 +511,11 @@ export async function DELETE(
 
   try {
     await prisma.ticket.delete({ where: { id: params.id } });
-    return NextResponse.json({ message: "Deleted" });
+    return nextInfoResponse("Ticket deleted successfully", 200, {
+      route: ROUTE,
+      meta: { ticketId: params.id },
+    });
   } catch (error) {
-    errLog("DELETE ERROR", getErrorMessage(error));
-    return nextErrorResponse("Internal server error", 500);
+    return nextErrorResponse(error, 500, { route: ROUTE, message: "Failed to delete ticket" });
   }
 }

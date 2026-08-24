@@ -38,9 +38,7 @@ export const endpoints = {
 
   // Tickets
   tickets: "api/tickets/",
-  ticket: "api/ticket/",
-  updateTicket: "api/ticket/{id}",
-  deleteTicket: "api/ticket/{id}",
+  ticket: "api/ticket/{id}",
 
   // Admin
   updateProfile: "api/admin/update-profile",
