@@ -1,6 +1,6 @@
 import z from "zod/v4";
-import { authFnResult, forbiddenAuthFnResult, registry, serverErr1 } from "../reusableObjects";
-import { agentProfileSchema, updateAgentDepartmentSchema } from "@/lib/zodSchema";
+import { authFnResult, commonInternalError, forbiddenAuthFnResult, registry } from "../reusableObjects";
+import { agentProfileSchema, updateAgentDepartmentSchema, zodTreeifiedErrorSchema } from "@/lib/zodSchema";
 
 export function regigisterUpdateDepartment() {
   registry.registerPath({
@@ -50,20 +50,27 @@ export function regigisterUpdateDepartment() {
               success: z.boolean().openapi({
                 example: true,
               }),
+              message: z.string().openapi({ example: "Agent department updated successfully" }),
               data: agentProfileSchema,
             }),
           },
         },
       },
       400: {
-        description: "Validation error",
+        description: "Request body is not valid JSON, or department failed schema validation",
         content: {
           "application/json": {
-            schema: z.object({
-              error: z.string().openapi({
-                example: "Department is required",
-              }),
-            }),
+            schema: z.union([zodTreeifiedErrorSchema, z.object({ error: z.string() })]),
+            examples: {
+              invalidJson: {
+                summary: "Malformed JSON body",
+                value: { error: "Request body must be valid JSON" },
+              },
+              zodError: {
+                summary: "Missing or invalid department field",
+                value: { error: { errors: [], properties: { department: { errors: ["The department field is required"] } } } },
+              },
+            },
           },
         },
       },
@@ -81,7 +88,7 @@ export function regigisterUpdateDepartment() {
           },
         },
       },
-      500: serverErr1
+      500: commonInternalError("Failed to update agent department"),
     },
   });
 }

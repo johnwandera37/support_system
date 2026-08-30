@@ -29,6 +29,16 @@ Notes:
           },
         },
       },
+      400: {
+        description: "Token present but malformed or missing expiry claim",
+        content: {
+          "application/json": {
+            schema: z.object({
+              error: z.string().openapi({ example: "Invalid token" }),
+            }),
+          },
+        },
+      },
       401: {
         description: "Missing or invalid access token cookie",
         content: {

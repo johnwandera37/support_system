@@ -73,7 +73,8 @@ export function nextInfoResponse<T = undefined>(
   });
 
   return NextResponse.json(
-    { message, ...(data !== undefined ? { data } : {}) },
+    { success: true,
+      message, ...(data !== undefined ? { data } : {}) },
     { status: statusVal }
   );
 }

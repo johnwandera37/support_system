@@ -1,7 +1,6 @@
 import z from "zod/v4";
-import { authFnResult, forbiddenAuthFnResult, registry, serverErr4, ticketNotFoundFullExample } from "../reusableObjects";
-import { commentCreateSchema, commentSchema } from "@/lib/zodSchema";
-import { zodTreeifiedErrorSchema } from "@/utils/zodErrSchema";
+import { authFnResult, commonInternalError, forbiddenAuthFnResult, registry, ticketNotFoundFullExample } from "../reusableObjects";
+import { commentCreateSchema, commentSchema, zodTreeifiedErrorSchema } from "@/lib/zodSchema";
 
 export function registerComments() {
   registry.registerPath({
@@ -47,7 +46,7 @@ export function registerComments() {
                 summary: "Agent private comment",
                 value: {
                   content: "Need to verify user credentials with admin",
-                  ticketId: "cmbklatoo03u44ou96eg4g6", 
+                  ticketId: "cmbklatoo03u44ou96eg4g6",
                   isPrivate: true
                 }
               }
@@ -92,26 +91,30 @@ export function registerComments() {
         }
       },
       400: {
-        description: "Validation error",
+        description: "Validation error, or malformed JSON body",
         content: {
           "application/json": {
-            schema: zodTreeifiedErrorSchema.openapi({
-              example: {
-                error: {
-                  errors: [],
-                  properties: {
-                    content: {
-                      errors: ["Too small: expected string to have >=2 characters"]
+            schema: z.union([zodTreeifiedErrorSchema, z.object({ error: z.string() })]),
+            examples: {
+              invalidJson: {
+                summary: "Malformed request body",
+                value: { error: "Request body must be valid JSON" },
+              },
+              zodErrors: {
+                summary: "Field validation errors",
+                value: {
+                  error: {
+                    errors: [],
+                    properties: {
+                      content: { errors: ["Too small: expected string to have >=2 characters"] },
+                      ticketId: { errors: ["Invalid input: expected string, received undefined"] },
                     },
-                    ticketId: {
-                      errors: [ "Invalid input: expected string, received undefined"]
-                    }
-                  }
-                }
-              }
-            })
-          }
-        }
+                  },
+                },
+              },
+            },
+          },
+        },
       },
       401: authFnResult,
       403: {
@@ -123,7 +126,7 @@ export function registerComments() {
             }),
             examples: {
 
-                specificRoleRequired: forbiddenAuthFnResult,
+              specificRoleRequired: forbiddenAuthFnResult,
               userPrivateComment: {
                 summary: "User trying to create private comment",
                 value: {
@@ -171,7 +174,7 @@ export function registerComments() {
           }
         }
       },
-      500: serverErr4
+      500: commonInternalError("Failed to create comment"),
     }
   });
 }

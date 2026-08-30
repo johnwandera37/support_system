@@ -1,12 +1,11 @@
 import z from "zod/v4";
 import {
   authFnResult,
+  commonInternalError,
   forbidden403OnlyAuthFnResult,
   registry,
-  serverErr1,
 } from "../reusableObjects";
-import { createTicketSchema, ticketSchema } from "@/lib/zodSchema";
-import { zodTreeifiedErrorSchema } from "@/utils/zodErrSchema";
+import { createTicketSchema, ticketListSchema, ticketSchema, zodTreeifiedErrorSchema } from "@/lib/zodSchema";
 
 //Get all tickets or specific tickets related to the user who created them
 export function regigisterTickets() {
@@ -32,7 +31,7 @@ export function regigisterTickets() {
         description: "List of tickets",
         content: {
           "application/json": {
-            schema: z.array(ticketSchema).openapi("TicketList"),
+            schema: ticketListSchema,
             examples: {
               adminOrAgentView: {
                 summary: "Admin/Agent view",
@@ -110,7 +109,7 @@ export function regigisterTickets() {
                         createdAt: "2025-06-26T13:31:44.450Z",
                         editedAt: null,
                         deletedAt: null,
-                        author: {
+                        user: {
                           id: "cmc52lbxe0001u4480tokis7d",
                           name: "Izuku Midoria",
                           role: "AGENT",
@@ -157,7 +156,7 @@ export function regigisterTickets() {
       },
       401: authFnResult,
       403: forbidden403OnlyAuthFnResult,
-      500: serverErr1,
+      500: commonInternalError("Failed to fetch tickets"), // was serverErr1,
     },
   });
 
@@ -203,7 +202,6 @@ export function regigisterTickets() {
                   priority: "HIGH",
                   userId: "cmbklc92i0004u44om90g1vnj",
                   assignedTo: null,
-                  assignedAgent: null,
                   createdAt: "2025-06-17T08:23:54.195Z",
                   updatedAt: "2025-06-17T08:23:54.195Z",
                   escalationReason: null,
@@ -218,39 +216,41 @@ export function regigisterTickets() {
         },
       },
       400: {
-        description: "Validation error",
+        description: "Validation error, or malformed JSON body",
         content: {
           "application/json": {
-            schema: zodTreeifiedErrorSchema.openapi({
-              example: {
-                error: {
-                  errors: [],
-                  properties: {
-                    title: {
-                      errors: [
-                        "Too small: expected string to have >=5 characters",
-                      ],
-                    },
-                    description: {
-                      errors: [
-                        "Too small: expected string to have >=10 characters",
-                      ],
-                    },
-                    priority: {
-                      errors: [
-                        'Invalid option: expected one of "LOW"|"MEDIUM"|"HIGH"|"URGENT"',
-                      ],
+            schema: z.union([zodTreeifiedErrorSchema, z.object({ error: z.string() })]),
+            examples: {
+              invalidJson: {
+                summary: "Malformed request body",
+                value: { error: "Request body must be valid JSON" },
+              },
+              zodErrors: {
+                summary: "Field validation errors",
+                value: {
+                  error: {
+                    errors: [],
+                    properties: {
+                      title: {
+                        errors: ["Too small: expected string to have >=5 characters"],
+                      },
+                      description: {
+                        errors: ["Too small: expected string to have >=10 characters"],
+                      },
+                      priority: {
+                        errors: ['Invalid option: expected one of "LOW"|"MEDIUM"|"HIGH"|"URGENT"'],
+                      },
                     },
                   },
                 },
               },
-            }),
+            },
           },
         },
       },
       401: authFnResult,
       403: forbidden403OnlyAuthFnResult,
-      500: serverErr1,
+      500: commonInternalError("Failed to create ticket"),
     },
   });
 }

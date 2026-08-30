@@ -1,5 +1,5 @@
 import z from "zod/v4";
-import { authFnResult, forbidden403OnlyAuthFnResult, registry, serverErr2 } from "../reusableObjects";
+import { authFnResult, commonInternalError, forbidden403OnlyAuthFnResult, registry } from "../reusableObjects";
 import { agentsListSchema } from "@/lib/zodSchema";
 
 export function registerAgents() {
@@ -102,7 +102,7 @@ export function registerAgents() {
       },
       401: authFnResult,
       403: forbidden403OnlyAuthFnResult,
-      500: serverErr2,
+      500: commonInternalError("Failed to fetch agents"),
     },
   });
 

@@ -294,3 +294,9 @@ export const expectZodErrorOnField = (
 // Match the exact test name npx jest -t "should allow user to create public comment"
 // Match filename npx jest describePOST
 // Checkout jest-circus or jest-runner-groups for more flexible filtering.
+
+
+// You might notice some code is commented, that is on the comments, 
+// I think I commented it to reduce my scope so as to sort one thing at a time
+// Notice how my business logic is advanced, also I encountered an error which I
+//  also commented it here so that I dont forget

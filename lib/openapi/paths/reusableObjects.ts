@@ -4,34 +4,33 @@ import { getRegistry } from "../registry";
 // Reusabble objects
 // Entire 401 from authorization fn
 const authFnResult = {
-  description: "Authentication failed",
-  content: {
-    "application/json": {
-      schema: z.object({
-        error: z.string().openapi({
-          example: "Unauthorized - Missing or invalid token",
-        }),
-      }),
-      examples: {
-        missingToken: {
-          summary: "Missing token",
-          description: "If the access token is not provided",
-          value: {
-            error: "Unauthorized",
+        description: "Missing access token cookie, or invalid/expired access token JWT",
+        content: {
+          "application/json": {
+            schema: z.object({
+              error: z.string().openapi({ example: "You need to be logged in to continue." }),
+            }),
+            examples: {
+              missingToken: {
+                summary: "Missing access token",
+                description: "If the access token is not provided",
+                value: { error: "You need to be logged in to continue." },
+              },
+              invalidToken: {
+                summary: "Invalid token",
+                description:
+                  "If invalid access token is provided",
+                value: { error: "Invalid session. Please log in again." },
+              },
+              expiredToken: {
+                summary: "Expired token",
+                description: "If token expired",
+                value: { error: "Session expired. Please log in again." },
+              },
+            },
           },
         },
-        invalidToken: {
-          summary: "Invalid token",
-          description:
-            "If invalid access token is provided or token expired",
-          value: {
-            error: "Invalid token",
-          },
-        },
-      },
-    },
-  },
-};
+      };
 
 // If there are other 403 apart from this one (from authorization fun)
 const forbiddenAuthFnResult = {
@@ -49,7 +48,7 @@ const forbidden403OnlyAuthFnResult = {
     "application/json": {
       schema: z.object({
         error: z.string().openapi({
-          example: "Forbidden",
+          example: "You don't have permission to do this.",
         }),
       }),
     },
@@ -62,14 +61,14 @@ const getUserDataFromATerrExamples = {
     summary: "Missing token",
     description: "If the admin access token is not provided",
     value: {
-      error: "Unauthorized",
+      error: "You need to be logged in to continue.",
     },
   },
   invalidToken: {
     summary: "Invalid token",
     description: "If invalid admin access token is provided or token expired",
     value: {
-      error: "Invalid token",
+      error: "Invalid session. Please log in again.",
     },
   },
 };
@@ -80,7 +79,7 @@ const getUserDataFromATerr = {
     "application/json": {
       schema: z.object({
         error: z.string().openapi({
-          example: "Unauthorized - Missing or invalid token",
+          example: "You need to be logged in to continue.",
         }),
       }),
       examples: getUserDataFromATerrExamples,
@@ -94,39 +93,61 @@ const refreshTokenFromCookieResponseErrors = {
     summary: "Missing authentication cookie header",
     description: "No cookie header at all",
     value: {
-      error: "Missing authentication cookies",
+      error: "You need to be logged in to continue.",
     },
   },
   missingRefreshToken: {
     summary: "Missing refresh token",
     description: "Cookie header exists but no refresh token",
     value: {
-      error: "Missing refresh token",
+      error: "Your session has expired. Please log in again.",
     },
   },
 };
 
 // Invalid refresh token
 const invalidRefreshTokenExample = {
-  summary: "Invalid token",
-  description: "Refresh token verification failed",
-  value: {
-    error: "Invalid token",
-  },
+  description: "Invalid refresh token",
+  content: {
+    "application/json": {
+      schema: z.object({
+        error: z.string().openapi({
+          example: "Unauthorized - Invalid token",
+        }),
+      }),
+      examples: {
+        invalidToken: {
+          summary: "Invalid token",
+          description: "Refresh token verification failed",
+          value: {
+            error: "Invalid session. Please log in again.",
+          },
+        },
+        expiredToken: {
+          summary: "Expired token",
+          description:
+            "If token expired",
+          value: {
+            error: `Session expired. Please log in again.`,
+          },
+        },
+      }
+    }
+  }
 };
 
 const ticketNotFoundFullExample = {
-      description: "Ticket not found",
-      content: {
-        "application/json": {
-          schema: z.object({
-            error: z.string().openapi({
-              example: "Ticket not found"
-            })
-          })
-        }
-      }
+  description: "Ticket not found",
+  content: {
+    "application/json": {
+      schema: z.object({
+        error: z.string().openapi({
+          example: "Ticket not found"
+        })
+      })
     }
+  }
+}
 
 const registry = getRegistry();
 
@@ -146,11 +167,6 @@ export function commonInternalError(example: string) {
   };
 }
 
-const serverErr1 = commonInternalError("Internal server error");
-const serverErr2 = commonInternalError("Something went wrong");
-const serverErr3 = commonInternalError("Credential update failed");
-const serverErr4 = commonInternalError("An unexpected error occurred while creating the comment");
-const serverErr5 = commonInternalError("Failed to update comment");
 
 export {
   authFnResult,
@@ -158,11 +174,6 @@ export {
   forbidden403OnlyAuthFnResult,
   getUserDataFromATerr,
   registry,
-  serverErr1,
-  serverErr2,
-  serverErr3,
-  serverErr4,
-  serverErr5,
   refreshTokenFromCookieResponseErrors,
   getUserDataFromATerrExamples,
   invalidRefreshTokenExample,

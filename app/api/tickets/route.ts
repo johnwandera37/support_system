@@ -75,7 +75,7 @@ export async function GET(req: Request) {
           orderBy: { createdAt: "asc" },
           include: {
             // Agent/admin who created the private comment
-            author: {
+            user: {
               select: {
                 id: true,
                 name: true,
@@ -113,7 +113,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const auth = await authorize(["USER"])(req, ROUTE);
+  const auth = await authorize(["USER"])(req, ROUTE); // For now the USER is the onely one allowed to create tickets
   if (!("authorized" in auth)) return auth;
   const user = auth.user; //Get user with role "USER" id from decoded access token
 

@@ -78,8 +78,8 @@ export const signupSchema = z
 //Login
 export const loginSchema = z
   .object({
-    email: z.email().openapi({ example: "johndoe@gmail.com" }),
-    password: z.string().openapi({ example: "Doe@12345" }),
+    email: z.email().openapi({ description: "User's email address", example: "johndoe@gmail.com" }),
+    password: z.string().openapi({ description: "User's password", example: "Doe@12345" }),
   })
   .openapi("Login");
 
@@ -123,7 +123,19 @@ export const ticketUpdateSchema = z
   })
   .openapi("TicketUpdate");
 
-// 📦 Reusable Full Ticket Schema (for response and OpenAPI)
+
+// Reusable nested user summary — used wherever a ticket includes creator/
+// assignee/comment-author info via a Prisma `select`.
+export const userSummarySchema = z
+  .object({
+    id: z.string().openapi({ example: "cmc52ncqj0003u4485h53x6jq" }),
+    name: z.string().openapi({ example: "Mighty Guy" }),
+    role: z.string().openapi({ example: "USER" }),
+  })
+  .openapi("UserSummary");
+
+
+// 📦 Base Ticket Schema — matches what PATCH/POST return (no relations included) (for response and OpenAPI)
 export const ticketSchema = z
   .object({
     id: z.string().openapi({ example: "cmbkl858h0002u44o97ovg0f1" }),
@@ -132,15 +144,38 @@ export const ticketSchema = z
       .string()
       .min(10)
       .openapi({ example: "Getting 404 error when trying to login" }),
-    status: TicketStatusEnum.default("OPEN").openapi({ example: "OPEN" }),
+    status: TicketStatusEnum.openapi({ example: "OPEN" }),
     priority: TicketPriorityEnum.openapi({ example: "HIGH" }),
     userId: z.string().openapi({ example: "cmbkl858h0002u44o97ovdhdhh" }),
     assignedTo: z.string().nullable().openapi({ example: null }),
     createdAt: z.iso.datetime().openapi({ example: "2023-07-22T14:30:00Z" }),
     updatedAt: z.iso.datetime().openapi({ example: "2023-07-22T14:30:00Z" }),
-    comments: z.array(commentSchema).openapi({ example: [] }),
+    isEscalated: z.boolean().openapi({ example: false }),
+    escalationReason: z.string().nullable().openapi({ example: null }),
+    escalatedTo: z.string().nullable().openapi({ example: null }),
+    escalatedBy: z.string().nullable().openapi({ example: null }),
+    escalatedAt: z.iso.datetime().nullable().openapi({ example: null }),
   })
   .openapi("Ticket");
+
+// GET /api/tickets/{id} — base + comments/privateComments only
+// (the single-ticket route doesn't `include` user/assignedAgent)
+export const ticketWithCommentsSchema = ticketSchema
+  .extend({
+    comments: z.array(commentSchema.extend({ user: userSummarySchema })).openapi({ example: [] }),
+    privateComments: z.array(commentSchema.extend({ user: userSummarySchema })).openapi({ example: [] }),
+  })
+  .openapi("TicketWithComments");
+
+
+// GET /api/tickets — full list view, adds user + assignedAgent too
+export const ticketListItemSchema = ticketWithCommentsSchema
+  .extend({
+    user: userSummarySchema,
+    assignedAgent: userSummarySchema.nullable(),
+  })
+  .openapi("TicketListItem");
+
 
 // Strict version for escalation requests(Not used though it was causing some errors)
 export const ticketEscalationSchema = ticketUpdateSchema
@@ -152,7 +187,8 @@ export const ticketEscalationSchema = ticketUpdateSchema
   .openapi("TicketEscalation");
 
 // array schema for lists
-export const ticketListSchema = z.array(ticketSchema).openapi("TicketList");
+export const ticketListSchema = z.array(ticketListItemSchema).openapi("TicketList");
+
 
 // Update admin profile
 export const updateProfileSchema = z
@@ -255,8 +291,21 @@ export const adminActionSchema = z.object({
 
 // Update agent department schema
 export const updateAgentDepartmentSchema = z.object({
-  department: z.string().openapi({
+  department: z.string({ error: "The department field is required" }).openapi({
     description: "New department assignment for the agent",
     example: "technical-support",
   }),
 })
+
+// Zod schema treefied error structure
+export const zodTreeifiedErrorSchema = z.object({
+  error: z.object({
+    errors: z.array(z.string()).optional(),
+    properties: z.record(
+      z.string(),
+      z.object({
+        errors: z.array(z.string()),
+      })
+    ).optional(),
+  }),
+});

@@ -1,6 +1,6 @@
-import z from "zod/v4";
-import { registry, serverErr1 } from "../reusableObjects";
-import { zodTreeifiedErrorSchema } from "@/utils/zodErrSchema";
+import z, { success } from "zod/v4";
+import { commonInternalError, registry } from "../reusableObjects";
+import { loginSchema, zodTreeifiedErrorSchema } from "@/lib/zodSchema";
 
 export function regigisterLogin() {
   registry.registerPath({
@@ -21,16 +21,7 @@ export function regigisterLogin() {
       body: {
         content: {
           "application/json": {
-            schema: z.object({
-              email: z.email().openapi({
-                description: "User's email address",
-                example: "user@example.com",
-              }),
-              password: z.string().openapi({
-                description: "User's password",
-                example: "securePassword123",
-              }),
-            }),
+            schema: loginSchema,
             examples: {
               adminLogin: {
                 summary: "Admin login",
@@ -94,6 +85,7 @@ export function regigisterLogin() {
             examples: {
               successResponse: {
                 value: {
+                  success: true,
                   message: "Login successful",
                   user: {
                     id: "clxyz1234567890abcdefgh",
@@ -135,7 +127,6 @@ export function regigisterLogin() {
                 example: "Invalid credentials",
               }),
             }),
-
             examples: {
               invalidEmail: {
                 summary: "Invalid email provided",
@@ -155,7 +146,7 @@ export function regigisterLogin() {
           },
         },
       },
-      500: serverErr1,
+      500: commonInternalError("Internal Server Error"),
     },
   });
 }

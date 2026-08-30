@@ -1,29 +1,27 @@
 import prisma from "@/lib/db";
 import { commentUpdateSchema } from "@/lib/zodSchema";
-import { getErrorMessage } from "@/utils/errMsg";
-import { errLog } from "@/utils/console-logger";
-import { badRequestFromZod, nextErrorResponse } from "@/utils/responseUtils";
+import { badRequestFromZod, nextErrorResponse, nextInfoResponse, nextWarnResponse } from "@/utils/responseUtils";
 import { NextResponse } from "next/server";
 import { authorize } from "@/lib/auth";
-import { endpoints } from "@/config/constants";
+import { COMMENT_EDIT_WINDOW_MIN, endpoints } from "@/config/constants";
 
-const ROUTE = endpoints.updateAgentDepartment;
+const ROUTE = endpoints.updateOrDeleteComment;
 
 type CommentValidationResult =
   | { error: string; status: number }
   | {
-      comment: {
-        id: string;
-        content: string;
-        ticket: {
-          userId: string;
-          assignedTo: string | null;
-        };
+    comment: {
+      id: string;
+      content: string;
+      ticket: {
+        userId: string;
+        assignedTo: string | null;
       };
-      isPrivate: boolean;
     };
+    isPrivate: boolean;
+  };
 
-const EDIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const EDIT_WINDOW_MS = COMMENT_EDIT_WINDOW_MIN * 60 * 1000;
 
 // Shared permission checker util
 async function validateCommentAccess(
@@ -90,10 +88,10 @@ async function validateCommentAccess(
   }
 
   // Any user trying to modify other user's comment is forbidden
-  if (comment.userId !== userId){
-     return { error: "You can only modify your own comments", status: 403 };
+  if (comment.userId !== userId) {
+    return { error: "You can only modify your own comments", status: 403 };
   }
-   
+
 
   // Strict 15 min to make changes to comment, applies to all for integrity and fair system
   const commentAge = Date.now() - new Date(comment.createdAt).getTime();
@@ -146,49 +144,41 @@ export async function PUT(
   const user = auth.user;
 
   // Validate content from body using zod schema
-  const body = await req.json();
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return nextWarnResponse("Request body must be valid JSON", 400, { route: ROUTE });
+  }
   const parsed = commentUpdateSchema.safeParse(body);
 
   // Return a bad request if invalid content provided from body
   if (!parsed.success) {
-    return badRequestFromZod(parsed.error);
+    return badRequestFromZod(parsed.error, 400, { route: ROUTE });
   }
 
   // Validate comment access and manipulation by passing the comment id, user id and isPrivate
   const validation = await validateCommentAccess(params.id, user.id);
   if ("error" in validation) {
-    return NextResponse.json(
-      { error: validation.error },
-      { status: validation.status }
-    );
+    return nextWarnResponse(validation.error, validation.status, { route: ROUTE, meta: { commentId: params.id } });
   }
 
   // Update the correct comment type based on validation result
-  let updatedComment;
   try {
-    if (validation.isPrivate) {
-      updatedComment = await prisma.privateComment.update({
+    const updatedComment = validation.isPrivate
+      ? await prisma.privateComment.update({
         where: { id: params.id },
-        data: {
-          content: parsed.data.content,
-          editedAt: new Date(),
-        },
-      });
-    } else {
-      updatedComment = await prisma.comment.update({
+        data: { content: parsed.data.content, editedAt: new Date() },
+      })
+      : await prisma.comment.update({
         where: { id: params.id },
-        data: {
-          content: parsed.data.content,
-          editedAt: new Date(),
-        },
+        data: { content: parsed.data.content, editedAt: new Date() },
       });
-    }
-  } catch (error) {
-    errLog("Failed to update comment block", error)
-    return nextErrorResponse("Failed to update comment", 500);
-  }
 
-  return NextResponse.json(updatedComment);
+    return NextResponse.json(updatedComment);
+  } catch (error) {
+    return nextErrorResponse(error, 500, { route: ROUTE, message: "Failed to update comment" });
+  }
 }
 
 // ================================ < Delete Comment > ================================
@@ -198,49 +188,37 @@ export async function DELETE(
   req: Request,
   props: { params: Promise<{ id: string }> }
 ) {
+  const params = await props.params; // Get the comment id passed in the endpoint url
+
+  // Authorizse deletion of comment based on the aurthor
+  const auth = await authorize(["USER", "AGENT", "ADMIN"])(req, ROUTE);
+  if (!("authorized" in auth)) return auth;
+
+  // Access user info
+  const user = auth.user;
+
+  // Validate comment access and manipulation by passing the comment id and user id
+  const validation = await validateCommentAccess(params.id, user.id);
+  if ("error" in validation) {
+    return nextWarnResponse(validation.error, validation.status, { route: ROUTE, meta: { commentId: params.id } });
+  }
+
   try {
-    const params = await props.params; // Get the comment id passed in the endpoint url
-
-    // Authorizse deletion of comment based on the aurthor
-    const auth = await authorize(["USER", "AGENT", "ADMIN"])(req, ROUTE);
-    if (!("authorized" in auth)) return auth;
-
-    // Access user info
-    const user = auth.user;
-
-    // Validate comment access and manipulation by passing the comment id and user id
-    const validation = await validateCommentAccess(params.id, user.id);
-    if ("error" in validation) {
-      return NextResponse.json(
-        { error: validation.error },
-        { status: validation.status }
-      );
-    }
-
     // Soft delete implementation
     if (validation.isPrivate) {
       await prisma.privateComment.update({
-        // ✅ Handles private comments
         where: { id: params.id },
-        data: {
-          deletedAt: new Date(),
-          content: "[deleted by author]",
-        },
+        data: { deletedAt: new Date(), content: "[deleted]" },
       });
     } else {
       await prisma.comment.update({
-        // ✅ Handles public comments
         where: { id: params.id },
-        data: {
-          deletedAt: new Date(),
-          content: "[deleted by author]",
-        },
+        data: { deletedAt: new Date(), content: "[deleted]" },
       });
     }
 
-    return NextResponse.json({ message: "Comment deleted" }, { status: 200 });
+    return nextInfoResponse("Comment deleted successfully", 200, { route: ROUTE, meta: { commentId: params.id } });
   } catch (error) {
-    errLog("Error in api/comments/[id]", getErrorMessage(error));
-    return nextErrorResponse("Something went wrong", 500);
+    return nextErrorResponse(error, 500, { route: ROUTE, message: "Failed to delete comment" });
   }
 }

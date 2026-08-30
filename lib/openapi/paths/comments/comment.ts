@@ -1,13 +1,11 @@
 import z from "zod/v4";
 import {
   authFnResult,
+  commonInternalError,
   forbiddenAuthFnResult,
   registry,
-  serverErr2,
-  serverErr5,
 } from "../reusableObjects";
-import { commentSchema, commentUpdateSchema } from "@/lib/zodSchema";
-import { zodTreeifiedErrorSchema } from "@/utils/zodErrSchema";
+import { commentSchema, commentUpdateSchema, zodTreeifiedErrorSchema } from "@/lib/zodSchema";
 
 const commentErrorResponses = {
   401: authFnResult,
@@ -182,27 +180,31 @@ export function registerComment() {
         },
       },
       400: {
-        description: "Validation error",
+        description: "Validation error, or malformed JSON body",
         content: {
           "application/json": {
-            schema: zodTreeifiedErrorSchema.openapi({
-              example: {
-                error: {
-                  properties: {
-                    content: {
-                      errors: [
-                        "Too small: expected string to have >=1 characters",
-                      ],
+            schema: z.union([zodTreeifiedErrorSchema, z.object({ error: z.string() })]),
+            examples: {
+              invalidJson: {
+                summary: "Malformed request body",
+                value: { error: "Request body must be valid JSON" },
+              },
+              zodErrors: {
+                summary: "Field validation errors",
+                value: {
+                  error: {
+                    properties: {
+                      content: { errors: ["Too small: expected string to have >=1 characters"] },
                     },
                   },
                 },
               },
-            }),
+            },
           },
         },
       },
       ...commentErrorResponses, // Spread shared error responses
-      500: serverErr5,
+      500: commonInternalError("Failed to update comment"),
     },
   });
 
@@ -249,20 +251,19 @@ export function registerComment() {
         content: {
           "application/json": {
             schema: z.object({
-              message: z.string(),
+              success: z.boolean().openapi({ example: true }),
+              message: z.string().openapi({ example: "Comment deleted successfully" }),
             }),
             examples: {
               success: {
-                value: {
-                  message: "Comment deleted",
-                },
+                value: { success: true, message: "Comment deleted successfully" },
               },
             },
           },
         },
       },
       ...commentErrorResponses, // Spread shared error responses
-      500: serverErr2,
+      500: commonInternalError("Failed to delete comment"),
     },
   });
 }

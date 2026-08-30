@@ -1,5 +1,5 @@
 import z from "zod/v4";
-import { registry } from "../reusableObjects";
+import { authFnResult, commonInternalError, registry } from "../reusableObjects";
 
 export function registerMeRoute() {
   registry.registerPath({
@@ -22,38 +22,32 @@ Notes:
         content: {
           "application/json": {
             schema: z.object({
-              user: z.object({
-                id: z
-                  .string()
-                  .openapi({ example: "clx012abc0001xslw4xx9zy90" }),
-                name: z.string().openapi({ example: "John Doe" }),
-                email: z.string().openapi({ example: "john@example.com" }),
-                role: z.string().openapi({ example: "ADMIN" }),
+              success: z.boolean().openapi({ example: true }),
+              message: z.string().openapi({ example: "User fetched successfully" }),
+              data: z.object({
+                user: z.object({
+                  id: z.string().openapi({ example: "clx012abc0001xslw4xx9zy90" }),
+                  name: z.string().openapi({ example: "John Doe" }),
+                  email: z.string().openapi({ example: "john@example.com" }),
+                  role: z.string().openapi({ example: "ADMIN" }),
+                }),
               }),
             }),
           },
         },
       },
-      401: {
-        description: "Not authenticated or invalid token",
-        content: {
-          "application/json": {
-            schema: z.object({
-              user: z.null().openapi({ example: "null" }),
-            }),
-          },
-        },
-      },
+      401: authFnResult,
       404: {
-        description: "User not found in database",
+        description: "Access token valid but no matching user in the database",
         content: {
           "application/json": {
             schema: z.object({
-              user: z.null().openapi({ example: "null" }),
+              error: z.string().openapi({ example: "Account not found." }),
             }),
           },
         },
       },
+      500: commonInternalError("Failed to fetch user data"),
     },
   });
 }

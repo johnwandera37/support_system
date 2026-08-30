@@ -1,5 +1,6 @@
 import z from "zod/v4";
 import {
+  commonInternalError,
   invalidRefreshTokenExample,
   refreshTokenFromCookieResponseErrors,
   registry,
@@ -39,6 +40,7 @@ export function regigisterLogout() {
         content: {
           "application/json": {
             schema: z.object({
+              success: z.boolean().openapi({ example: true }),
               message: z.string().openapi({
                 example: "Logout successful",
               }),
@@ -46,6 +48,7 @@ export function regigisterLogout() {
             examples: {
               success: {
                 value: {
+                  success: true,
                   message: "Logout successful",
                 },
               },
@@ -69,6 +72,7 @@ export function regigisterLogout() {
           },
         },
       },
+      500: commonInternalError("Logout failed with unhandled exception"),
     },
   });
 }

@@ -1,18 +1,19 @@
 import z from "zod/v4";
 import {
   authFnResult,
+  commonInternalError,
   forbidden403OnlyAuthFnResult,
   forbiddenAuthFnResult,
   registry,
-  serverErr1,
   ticketNotFoundFullExample,
 } from "../reusableObjects";
 import {
   commentSchema,
   ticketSchema,
   ticketUpdateSchema,
+  ticketWithCommentsSchema,
+  zodTreeifiedErrorSchema,
 } from "@/lib/zodSchema";
-import { zodTreeifiedErrorSchema } from "@/utils/zodErrSchema";
 
 export function regigisterTicket() {
   // GET /api/tickets/{id}
@@ -43,9 +44,7 @@ export function regigisterTicket() {
         description: "Ticket details with comments",
         content: {
           "application/json": {
-            schema: ticketSchema.extend({
-              comments: z.array(commentSchema),
-            }),
+            schema: ticketWithCommentsSchema,
             examples: {
               userTicket: {
                 summary: "User ticket created",
@@ -110,7 +109,7 @@ export function regigisterTicket() {
                       createdAt: "2025-06-26T13:31:44.450Z",
                       editedAt: null,
                       deletedAt: null,
-                      author: {
+                      user: {
                         id: "cmc52lbxe0001u4480tokis7d",
                         name: "Izuku Midoria",
                         role: "AGENT",
@@ -126,7 +125,7 @@ export function regigisterTicket() {
       401: authFnResult,
       403: forbidden403OnlyAuthFnResult,
       404: ticketNotFoundFullExample,
-      500: serverErr1,
+      500: commonInternalError("Failed to fetch ticket"),
     },
   });
 
@@ -296,7 +295,7 @@ Updates ticket properties based on user role.
         },
       },
       400: {
-        description: "Fields Validation error | Ticket assignemnt errors",
+        description: "Fields Validation error | | Malformed JSON | Ticket assignment/business-rule errors",
         content: {
           "application/json": {
             schema: z.union([
@@ -308,6 +307,10 @@ Updates ticket properties based on user role.
               }),
             ]),
             examples: {
+              invalidJson: {
+                summary: "Malformed request body",
+                value: { error: "Request body must be valid JSON" },
+              },
               // Zod errors from body
               zodErrors: {
                 summary: "Invalid priority | status",
@@ -396,14 +399,6 @@ Updates ticket properties based on user role.
                   error: "Please select an admin to escalate to",
                 },
               },
-              adminNotFound: {
-                summary: "Selected admin not found",
-                description:
-                  "The selected admin to escalate the ticket to has not been found",
-                value: {
-                  error: "Selected admin not found or not available",
-                },
-              },
             },
           },
         },
@@ -448,7 +443,24 @@ Updates ticket properties based on user role.
           },
         },
       },
-      404: ticketNotFoundFullExample,
+      404: {
+        description: "Ticket not found, or selected admin for escalation not found/not available",
+        content: {
+          "application/json": {
+            schema: z.object({ error: z.string() }),
+            examples: {
+              ticketNotFound: {
+                value: { error: "Ticket not found" },
+              },
+              adminNotFound: {
+                summary: "Selected admin not found",
+                description: "The admin selected for escalation has not been found or is not available",
+                value: { error: "Selected admin not found or not available" },
+              },
+            },
+          },
+        },
+      },
       409: {
         description: "Conflict with current ticket state",
         content: {
@@ -485,7 +497,24 @@ Updates ticket properties based on user role.
           },
         },
       },
-      500: serverErr1,
+      500: {
+        description: "Internal server error",
+        content: {
+          "application/json": {
+            schema: z.object({ error: z.string() }),
+            examples: {
+              updateFailed: {
+                summary: "Unhandled failure updating the ticket",
+                value: { error: "Failed to update ticket" },
+              },
+              escalationFailed: {
+                summary: "Unhandled failure during the escalation transaction",
+                value: { error: "Failed to escalate ticket" },
+              },
+            },
+          },
+        },
+      },
     },
   });
 
@@ -517,8 +546,9 @@ Updates ticket properties based on user role.
         content: {
           "application/json": {
             schema: z.object({
+              success: z.boolean().openapi({ example: true }),
               message: z.string().openapi({
-                example: "Deleted",
+                example: "Ticket deleted successfully",
               }),
             }),
           },
@@ -527,7 +557,7 @@ Updates ticket properties based on user role.
       401: authFnResult,
       403: forbidden403OnlyAuthFnResult,
       404: ticketNotFoundFullExample,
-      500: serverErr1,
+      500: commonInternalError("Failed to delete ticket"),
     },
   });
 }

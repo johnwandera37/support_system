@@ -1,12 +1,11 @@
 import z from "zod/v4";
 import {
+  commonInternalError,
   getUserDataFromATerrExamples,
   refreshTokenFromCookieResponseErrors,
   registry,
-  serverErr3,
 } from "../reusableObjects";
-import { updateProfileSchema } from "@/lib/zodSchema";
-import { zodTreeifiedErrorSchema } from "@/utils/zodErrSchema";
+import { updateProfileSchema, zodTreeifiedErrorSchema } from "@/lib/zodSchema";
 
 export function regigisterUpdateProfile() {
   registry.registerPath({
@@ -65,14 +64,16 @@ export function regigisterUpdateProfile() {
               message: z.string().openapi({
                 example: "Credentials updated. Please login again",
               }),
-              requiresReauth: z.boolean().openapi({ example: true }),
+              data: z.object({
+                requiresReauth: z.boolean().openapi({ example: true }),
+              }),
             }),
             examples: {
               success: {
                 summary: "Successful credential update",
                 value: {
                   success: true,
-                  message: "Credentials updated. Please login again",
+                  message: "Credentials updated. Please login again.",
                   data: { requiresReauth: true }
                 },
               },
@@ -83,7 +84,7 @@ export function regigisterUpdateProfile() {
                 value: {
                   success: true,
                   message:
-                    "Credentials updated. Some sessions may remain active",
+                    "Credentials updated. Some sessions may remain active.",
                   data: { requiresReauth: true }
                 },
               },
@@ -93,7 +94,7 @@ export function regigisterUpdateProfile() {
       },
       401: {
         description:
-          " Unauthorized - Missing or invalid token | Current password verification failed | Missing authentication cookie and refresh token",
+          "Missing/invalid admin access token, or current password verification failed",
         content: {
           "application/json": {
             schema: z.object({
@@ -114,7 +115,6 @@ export function regigisterUpdateProfile() {
                     "Current password incorrect, Use the initially seeded credentials",
                 },
               },
-              ...refreshTokenFromCookieResponseErrors,
             },
           },
         },
@@ -125,7 +125,7 @@ export function regigisterUpdateProfile() {
           "application/json": {
             schema: z.object({
               error: z.string().openapi({
-                example: "Unauthorized",
+                example: "Must change default admin email",
               }),
             }),
 
@@ -205,7 +205,7 @@ export function regigisterUpdateProfile() {
         },
       },
 
-      500: serverErr3,
+      500: commonInternalError("Credential update failed"),
     },
   });
 }

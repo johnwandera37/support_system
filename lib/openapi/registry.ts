@@ -12,6 +12,11 @@ import {
   commentCreateSchema,
   commentUpdateSchema,
   ticketListSchema,
+  updateProfileSchema,
+  agentProfileSchema,
+  agentsListSchema,
+  adminActionSchema,
+  updateAgentDepartmentSchema,
 } from "../zodSchema";
 
 // Create registry instance without immediately registering paths
@@ -55,3 +60,10 @@ registry.register("TicketList", ticketListSchema);
 registry.register("Comment", commentSchema);
 registry.register("CommentCreate", commentCreateSchema);
 registry.register("CommentUpdate", commentUpdateSchema);
+
+// Admin
+registry.register("AdminProfileUpdate", updateProfileSchema);
+registry.register("AgentProfile", agentProfileSchema);
+registry.register("AgentsList", agentsListSchema);
+registry.register("AdminAction", adminActionSchema);
+registry.register("UpdateAgentDepartment", updateAgentDepartmentSchema);

@@ -42,6 +42,10 @@ export const openApiDocument = new OpenApiGeneratorV3(
       description: "Administrative endpoints",
     },
     {
+      name: "Admins",
+      description: "Get admin's data",
+    },
+    {
       name: "Tickets",
       description: "Endpoints for ticket management",
     },

@@ -3,6 +3,7 @@ import { registerAgents } from "./admin/agents";
 import { registerAgentRequests } from "./admin/agents-requests";
 import { regigisterUpdateProfile } from "./admin/update-profile";
 import { regigisterUpdateDepartment } from "./admin/updateDepartment";
+import { registerGetAdmins } from "./admins/get-admins";
 import { registerAccessTokenRoute } from "./auth/access";
 import { regigisterLogin } from "./auth/login";
 import { regigisterLogout } from "./auth/logout";
@@ -21,6 +22,9 @@ export function registerAllPaths() {
     registerAgents();
     regigisterUpdateProfile();
     regigisterUpdateDepartment();
+
+    // Admins
+    registerGetAdmins()
 
     // Auth
     regigisterSignup();

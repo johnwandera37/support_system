@@ -1,6 +1,6 @@
 import { z } from "zod/v4";
-import { authFnResult, forbiddenAuthFnResult, registry, serverErr1 } from "../reusableObjects";
-import { adminActionSchema } from "@/lib/zodSchema";
+import { authFnResult, commonInternalError, forbiddenAuthFnResult, registry } from "../reusableObjects";
+import { adminActionSchema, zodTreeifiedErrorSchema } from "@/lib/zodSchema";
 
 export function registerAdminActionPaths() {
 
@@ -55,59 +55,59 @@ export function registerAdminActionPaths() {
     },
     responses: {
       200: {
-        description:
-          "Action completed successfully. Email notification sent to user.",
+        description: "Action completed successfully. Email notification sent to user (or noted as failed).",
         content: {
           "application/json": {
             schema: z.object({
-              message: z.string().openapi({
-                example: "Promote action completed successfully.",
-              }),
+              success: z.boolean().openapi({ example: true }),
+              message: z.string().openapi({ example: "Promote action completed successfully." }),
             }),
+            examples: {
+              success: { value: { success: true, message: "Promote action completed successfully." } },
+              emailFailed: {
+                summary: "Action succeeded, notification email failed",
+                value: { success: true, message: "Approve action completed successfully, but the notification email failed to send." },
+              },
+            },
           },
         },
       },
       400: {
-        description: "Invalid request parameters",
+        description: "Body failed Zod validation, or a business rule was violated",
         content: {
           "application/json": {
-            schema: z.object({
-              error: z.string().openapi({
-                example: "Invalid request",
-              }),
-            }),
+            schema: z.union([zodTreeifiedErrorSchema, z.object({ error: z.string() })]),
             examples: {
-              invalidRequest: {
-                summary: "Invalid reguest",
-                description:
-                  "If either userId or action is not provided in body",
+              zodErrors: {
+                summary: "Invalid action / userId / targetRole shape",
                 value: {
-                  error: "Invalid request",
+                  error: {
+                    errors: [],
+                    properties: { action: { errors: ['Invalid option: expected one of "approve"|"promote"|"demote"'] } },
+                  },
                 },
               },
               notPendingApproval: {
                 summary: "Not pending approval",
-                description:
-                  "If approve action is performed on a user who is already approved",
-                value: {
-                  error: "User is not pending approval",
-                },
+                value: { error: "User is not pending approval" },
               },
               alreadyAdmin: {
                 summary: "Already an admin",
-                description:
-                  "If promotion action is attempted on a user that is already an admin",
-                value: {
-                  error: "User is already an admin",
-                },
+                value: { error: "User is already an admin" },
               },
-              invalidTargetRole: {
-                summary: "Invalid target role",
-                description:
-                  "If no target role is provided for demotion action",
-                value: {
-                  error: "Invalid or missing targetRole",
-                },
+              notAdminOrAgent: {
+                summary: "Target is not an admin or agent",
+                description: "Demote attempted on a plain USER",
+                value: { error: "User is not an admin or agent" },
+              },
+              missingTargetRole: {
+                summary: "Missing targetRole for demote",
+                value: { error: "targetRole is required for demote" },
+              },
+              alreadyAgent: {
+                summary: "Already an agent",
+                description: "Demote attempted with targetRole=AGENT on a user who is already an AGENT",
+                value: { error: "User is already an agent" },
               },
             },
           },
@@ -148,7 +148,30 @@ export function registerAdminActionPaths() {
           },
         },
       },
-      500: serverErr1,
+      500: {
+        description: "Internal server error — unhandled failure while performing the requested action",
+        content: {
+          "application/json": {
+            schema: z.object({
+              error: z.string().openapi({ example: "promote action failed" }),
+            }),
+            examples: {
+              approveFailed: {
+                summary: "Unhandled failure during approve",
+                value: { error: "approve action failed" },
+              },
+              promoteFailed: {
+                summary: "Unhandled failure during promote",
+                value: { error: "promote action failed" },
+              },
+              demoteFailed: {
+                summary: "Unhandled failure during demote",
+                value: { error: "demote action failed" },
+              },
+            },
+          },
+        },
+      },
     },
   });
 }

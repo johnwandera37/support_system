@@ -34,7 +34,7 @@ declare global {
     createdAt: string;
     editedAt: string | null;
     deletedAt: string | null;
-    author: User;
+    user: User;
   }
 
   interface Ticket {

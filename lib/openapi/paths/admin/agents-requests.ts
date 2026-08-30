@@ -1,5 +1,5 @@
 import z from "zod/v4";
-import { authFnResult, forbidden403OnlyAuthFnResult, registry } from "../reusableObjects";
+import { authFnResult, commonInternalError, forbidden403OnlyAuthFnResult, registry } from "../reusableObjects";
 
 export function registerAgentRequests(){
 //Agents requests
@@ -59,21 +59,7 @@ registry.registerPath({
     },
     401: authFnResult,
     403: forbidden403OnlyAuthFnResult,
-    500: {
-      description: "Internal server error",
-      content: {
-        "application/json": {
-          schema: z.object({
-            success: z.boolean().openapi({
-              example: false,
-            }),
-            message: z.string().openapi({
-              example: "Internal server error",
-            }),
-          }),
-        },
-      },
-    },
+    500: commonInternalError("Failed to fetch agent requests"),
   },
 });
 

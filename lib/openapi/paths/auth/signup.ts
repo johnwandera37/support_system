@@ -1,7 +1,6 @@
 import z from "zod/v4";
-import { registry, serverErr1 } from "../reusableObjects";
-import { signupSchema } from "@/lib/zodSchema";
-import { zodTreeifiedErrorSchema } from "@/utils/zodErrSchema";
+import { commonInternalError, registry } from "../reusableObjects";
+import { signupSchema, zodTreeifiedErrorSchema } from "@/lib/zodSchema";
 
 export function regigisterSignup() {
   registry.registerPath({
@@ -59,48 +58,6 @@ export function regigisterSignup() {
           },
         },
       },
-      // 400: {
-      //   description: "Validation error",
-      //   content: {
-      //     "application/json": {
-      //       schema: z.object({
-      //         error: z.object({
-      //           errors: z.array(z.string()).optional(),
-      //           properties: z
-      //             .record(
-      //               z.string(),
-      //               z.object({
-      //                 errors: z.array(z.string()),
-      //               })
-      //             )
-      //             .optional()
-      //             .openapi({
-      //               example: {
-      //                 name: {
-      //                   errors: ["String must contain at least 2 character(s)"],
-      //                 },
-      //                 email: {
-      //                   errors: ["Invalid email"],
-      //                 },
-      //                 password: {
-      //                   errors: [
-      //                     "Password must be at least 8 characters",
-      //                     "Must contain at least one uppercase letter",
-      //                     "Must contain at least one lowercase letter",
-      //                     "Must contain at least one number",
-      //                   ],
-      //                 },
-      //                 wantsToBeAgent: {
-      //                   errors: ["Expected boolean, received string"],
-      //                 },
-      //               },
-      //               description: "Field-specific validation errors",
-      //             }),
-      //         }),
-      //       }),
-      //     },
-      //   },
-      // },
 
       400: {
         description: "Validation error",
@@ -122,6 +79,7 @@ export function regigisterSignup() {
                       "Must contain at least one uppercase letter",
                       "Must contain at least one lowercase letter",
                       "Must contain at least one number",
+                      "Must contain at least one special character"
                     ].map((msg) => ({ errors: [msg] }))[0], // simplified for copy-paste
                     wantsToBeAgent: {
                       errors: ["Expected boolean, received string"],
@@ -159,7 +117,7 @@ export function regigisterSignup() {
           },
         },
       },
-      500: serverErr1,
+      500: commonInternalError("Signup failed with unhandled exception"),
     },
   });
 }

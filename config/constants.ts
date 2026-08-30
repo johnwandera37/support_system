@@ -13,6 +13,9 @@ export const REDIS_RECONNECT_MAX_RETRIES = Number(process.env.REDIS_RECONNECT_MA
 export const REDIS_RECONNECT_BASE_DELAY_MS = Number(process.env.REDIS_RECONNECT_BASE_DELAY_MS ?? 300);
 export const REDIS_RECONNECT_MAX_DELAY_MS = Number(process.env.REDIS_RECONNECT_MAX_DELAY_MS ?? 5000);
 
+// # Time taken to edit a posted comment(cal to minutes, so pass your min in env)
+export const COMMENT_EDIT_WINDOW_MIN = Number(process.env.COMMENT_EDIT_WINDOW_MIN);
+
 
 // SUPPORT EMAIL
 const ORG_SUPPORT_EMAIL = process.env.ORG_SUPPORT_EMAIL || '';
@@ -51,7 +54,7 @@ export const endpoints = {
   getAdmins: "api/admins",
 
   // Comments
-  createOrGetComment: "api/comments/",
+  createComment: "api/comments/",
   updateOrDeleteComment: "api/comments/{id}",
 };
 

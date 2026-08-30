@@ -5,7 +5,6 @@ import { badRequestFromZod, nextErrorResponse, nextInfoResponse, nextWarnRespons
 import { Prisma } from "@/lib/generated/prisma/client";
 import { authorize } from "@/lib/auth";
 import { endpoints } from "@/config/constants";
-import { getErrorMessage } from "@/utils/errMsg";
 
 const ROUTE = endpoints.ticket
 
@@ -42,7 +41,7 @@ export async function GET(
         privateComments: {
           orderBy: { createdAt: "asc" },
           include: {
-            author: {
+            user: {
               select: {
                 id: true,
                 name: true,
@@ -73,7 +72,7 @@ export async function GET(
 // For a ticket to be updated, it expects either:
 // 1. assignedTo, this is id where a ticket is assigned to either an admin or agent
 //    status of the ticket, by default ticket is OPEN, when user is assigned it updates to PENDING, agent only have options to RESOLVED or CLOSED, and back to PENDING just in case
-//    priority of the ticket can be updated by user only if they fill that the situation is not critical or more critical, admin/agent can update priority but this option will not be availbale for them in front end
+//    priority of the ticket can be updated by USER only if they fill that the situation is not critical or more critical, admin/agent can update priority but this option will not be availbale for them in front end
 // 2. For escallation, isEscalated (should help trigger escalation from frontend) and escalated reason to be provided from the body, the rest are provided in the code
 // 3. The ticket can only be closed if its status is RESOLVED
 // 4. Ticket assingnment on CLOSED or RESOLVED tickets is not allowed
@@ -221,6 +220,7 @@ export async function PATCH(
         where: { id: parsed.data.assignedTo },
       });
 
+      // No matter what, the assignment should be possible for AGENTS or ADMINS, no USER should be assigned a ticket
       if (!targetUser || !["AGENT", "ADMIN"].includes(targetUser.role)) {
         return nextWarnResponse("Invalid assignee", 400, { route: ROUTE });
       }

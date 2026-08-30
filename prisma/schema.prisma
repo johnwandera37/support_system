@@ -145,7 +145,7 @@ model PrivateComment {
   content   String
   ticketId  String
   userId    String
-  author    User      @relation(fields: [userId], references: [id])
+  user    User      @relation(fields: [userId], references: [id])
   ticket    Ticket    @relation(fields: [ticketId], references: [id])
   createdAt DateTime  @default(now())
   editedAt  DateTime? // Tracks last edit time
