@@ -1,4 +1,19 @@
+// tests/authorizationsChecks.ts
+
 import { createRouteRequest } from "./testHelpers";
+
+/**
+ * Use this ONLY for routes where 401/403 is purely about identity/role —
+ * i.e. the set of roles in `rolesAllowed` is the complete story for who
+ * can call this route, with no additional per-request business state
+ * (ticket assignment, ticket status, etc.) also producing a 403.
+ *
+ * Good fit: DELETE /api/tickets/{id} (ADMIN only, no other condition).
+ * Bad fit: POST /api/comments — AGENT is "allowed" by role, but still
+ * gets 403 if the ticket isn't assigned to them. That's a business-rule
+ * rejection, not an authorization rejection, and this helper can't tell
+ * them apart — write those cases by hand instead.
+ */
 
 // A request handler type compatible with Next.js route handlers
 type RequestHandler = (
@@ -21,94 +36,6 @@ type DescribeAuthorizationOptions = {
   getParams?: () => any;
 };
 
-// export function authorizationRoleChecks({
-//   method,
-//   url,
-//   routeHandler,
-//   rolesAllowed,
-//   tokens,
-//   getBody,
-//   getParams,
-// }: DescribeAuthorizationOptions) {
- 
-//     it("should reject missing token with 401", async () => {
-//       const { req, params } = createRouteRequest(
-//         method,
-//         url,
-//         "", // No token
-//         getParams?.(),
-//         getBody?.()
-//       );
-//       const res = await routeHandler(req, { params });
-//       const data = await res.json();
-
-//       expect(res.status).toBe(401);
-//       expect(data.error).toMatch(/unauthorized/i);
-//     });
-
-//     it("should reject invalid token with 401", async () => {
-//       const { req, params } = createRouteRequest(
-//         method,
-//         url,
-//         "Bearer some.invalid.token",
-//         getParams?.(),
-//         getBody?.()
-//       );
-//       const res = await routeHandler(req, { params });
-//       const data = await res.json();
-
-//       expect(res.status).toBe(401);
-//       expect(data.error).toMatch(/invalid token/i);
-//     });
-
-//     const allRoles = ["USER", "AGENT", "ADMIN"];
-//     const disallowedRoles = allRoles.filter((r) => !rolesAllowed.includes(r));
-
-//     disallowedRoles.forEach((role) => {
-//       const tokenKey = `${role.toLowerCase()}Token`;
-//       const token = tokens[tokenKey];
-//       if (token) {
-//         it(`should reject role "${role}" with 403`, async () => {
-//           const { req, params } = createRouteRequest(
-//             method,
-//             url,
-//             token,
-//             getParams?.(),
-//             getBody?.()
-//           );
-//           const res = await routeHandler(req, { params });
-//           const data = await res.json();
-
-//           expect(res.status).toBe(403);
-//           expect(data.error).toMatch(/forbidden/i);
-//         });
-//       }
-//     });
-
-//     rolesAllowed.forEach((role) => {
-//       const tokenKey = `${role.toLowerCase()}Token`;
-//       const token = tokens[tokenKey];
-      
-//       if (token) {
-//         it(`should allow role "${role}" to pass authorization`, async () => {
-//           const { req, params } = createRouteRequest(
-//             method,
-//             url,
-//             token,
-//             getParams?.(),
-//             getBody?.()
-//           );
-//           const res = await routeHandler(req, { params });
-
-//           // Allow any result that's NOT 401 or 403
-//           expect([401, 403]).not.toContain(res.status);
-//         });
-//       }
-//     });
-
-// }
-
-
 export function authorizationRoleChecks({
   method,
   url,
@@ -125,20 +52,20 @@ export function authorizationRoleChecks({
 
   // Test missing token
   it("should reject missing token with 401", async () => {
-    const { req, params } = getRequest("");
+    const { req, params } = getRequest("");// No token provided
     const res = await routeHandler(req, { params });
     const data = await res.json();
     expect(res.status).toBe(401);
-    expect(data.error).toMatch(/unauthorized/i);
+    expect(data.error).toBe("You need to be logged in to continue.");
   });
 
   // Test invalid token
   it("should reject invalid token with 401", async () => {
-    const { req, params } = getRequest("Bearer some.invalid.token");
+    const { req, params } = getRequest("Bearer some.invalid.token");// Passed as an invalid token
     const res = await routeHandler(req, { params });
     const data = await res.json();
     expect(res.status).toBe(401);
-    expect(data.error).toMatch(/invalid token/i);
+    expect(data.error).toBe("Invalid session. Please log in again.");
   });
 
   // throw a friendly dev error if none of the tokens were passed
@@ -159,13 +86,13 @@ export function authorizationRoleChecks({
     .filter(Boolean) as { role: string; token: string }[];
 
   test.each(disallowedCases)(
-    'should reject unauthorized roles with 403',
+    "should reject role $role with 403",
     async ({ role, token }) => {
       const { req, params } = getRequest(token);
       const res = await routeHandler(req, { params });
       const data = await res.json();
       expect(res.status).toBe(403);
-      expect(data.error).toMatch(/forbidden/i);
+      expect(data.error).toBe("You don't have permission to do this.");
     }
   );
 
@@ -180,7 +107,7 @@ export function authorizationRoleChecks({
     .filter(Boolean) as { role: string; token: string }[];
 
   test.each(allowedCases)(
-    'should allow authorized roles to pass authorization',
+    "should allow role $role to pass authorization",
     async ({ role, token }) => {
       const { req, params } = getRequest(token);
       const res = await routeHandler(req, { params });

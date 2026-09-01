@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "init": "tsx scripts/init.ts",
     "cleanup:test": "tsx scripts/cleanTestData.ts",
-    "shutdownredis": "tsx lib/redisShutdown.ts"
+    "shutdownredis": "tsx lib/redisShutdown.ts",
+    "test": "dotenv -e .env.test -- jest",
+    "test:migrate": "dotenv -e .env.test -- npx prisma migrate deploy"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.0.0-beta.3",
@@ -56,6 +58,7 @@
     "@types/react-dom": "19.2.4",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-react": "^5.18.0",
+    "dotenv-cli": "^11.0.0",
     "eslint": "10.9.0",
     "eslint-config-next": "16.3.2",
     "jest": "^29.7.0",

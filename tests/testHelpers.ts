@@ -1,3 +1,5 @@
+// tests/testHelpers.ts
+
 import prisma from "@/lib/db";
 import {
   PrivateComment,
@@ -8,7 +10,7 @@ import {
 } from "@/lib/generated/prisma/client";
 import { signToken } from "@/lib/jwt";
 
-// Test context
+// TestContext no longer carries a shared ticket — every test owns its own
 export type TestContext = {
   tokens: {
     userToken: string;
@@ -20,11 +22,6 @@ export type TestContext = {
     agent: User & { email: string };
     admin: User & { email: string };
   };
-  ticket: Ticket & { id: string }; // Explicit id;
-  // comments: {
-  //   public: Comment & { id: string };
-  //   private: PrivateComment & { id: string };
-  // };
 };
 
 export const createTestUserWithToken = async (
@@ -158,6 +155,10 @@ export async function escalateTicketToAdmin(
 // Call with body for POST requests
 // Call with params for DELETE requests
 // Call with both for PUT/PATCH requests
+// Fixed: previously always sent "Authorization: Bearer " even with an empty
+// token, which meant "missing token" tests were actually sending an empty
+// (not absent) header — hitting JWT verification instead of the
+// missing-header early-return in your auth code.
 export const createRouteRequest = <T extends { id: string } | undefined>(
   method: string,
   url: string,
@@ -169,7 +170,7 @@ export const createRouteRequest = <T extends { id: string } | undefined>(
     method,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}), // omit header entirely when token is empty
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -186,64 +187,54 @@ export const createAuthHeaders = (token: string) => ({
   Authorization: `Bearer ${token}`,
 });
 
-// Clear contexts, used in afterAll()
-export async function cleanupTestContext(ctx: TestContext) {
-  if (!ctx || !ctx.users || !ctx.ticket) {
-    console.warn("Invalid or incomplete test context – skipping cleanup");
-    return;
-  }
+// Clear contexts, used in afterAll(), NOT USED ANYMORE
+// export async function cleanupTestContext(ctx: TestContext) {
+//   if (!ctx || !ctx.users || !ctx.ticket) {
+//     console.warn("Invalid or incomplete test context – skipping cleanup");
+//     return;
+//   }
 
-  const emails = [
-    ctx.users.user?.email,
-    ctx.users.agent?.email,
-    ctx.users.admin?.email,
-  ].filter((email): email is string => !!email); // remove undefined/nulls
+//   const emails = [
+//     ctx.users.user?.email,
+//     ctx.users.agent?.email,
+//     ctx.users.admin?.email,
+//   ].filter((email): email is string => !!email); // remove undefined/nulls
 
-  const ticketId = ctx.ticket?.id;
+//   const ticketId = ctx.ticket?.id;
 
-  const cleanupTasks = [];
+//   const cleanupTasks = [];
 
-  if (ticketId) {
-    cleanupTasks.push(
-      prisma.comment.deleteMany({ where: { ticketId } }),
-      prisma.privateComment.deleteMany({ where: { ticketId } }),
-      prisma.ticket.delete({ where: { id: ticketId } })
-    );
-  }
+//   if (ticketId) {
+//     cleanupTasks.push(
+//       prisma.comment.deleteMany({ where: { ticketId } }),
+//       prisma.privateComment.deleteMany({ where: { ticketId } }),
+//       prisma.ticket.delete({ where: { id: ticketId } })
+//     );
+//   }
 
-  // ● Test suite failed to run
+//   if (emails.length > 0) {
+//     cleanupTasks.push(
+//       prisma.user.deleteMany({
+//         where: {
+//           email: { in: emails },
+//           protected: false,
+//         },
+//       })
+//     );
+//   }
 
-  //   PrismaClientKnownRequestError:
-  //   Invalid `prisma.user.deleteMany()` invocation in
-  //   C:\Users\user\Desktop\Development\Projects\Web development\Support System\support-system\tests\testHelpers.ts:194:19
+//   if (cleanupTasks.length === 0) {
+//     console.warn("Nothing to clean up – no valid ticket or users found");
+//     return;
+//   }
 
-  //     191
-  //     192 if (emails.length > 0) {
-  //     193   cleanupTasks.push(
-  //   → 194     prisma.user.deleteMany(
-  //   Foreign key constraint violated on the constraint: `Ticket_userId_fkey`
+//   await prisma.$transaction(cleanupTasks);
+// }
 
-  if (emails.length > 0) {
-    cleanupTasks.push(
-      prisma.user.deleteMany({
-        where: {
-          email: { in: emails },
-          protected: false,
-        },
-      })
-    );
-  }
 
-  if (cleanupTasks.length === 0) {
-    console.warn("Nothing to clean up – no valid ticket or users found");
-    return;
-  }
-
-  await prisma.$transaction(cleanupTasks);
-}
-
-// Set up context for all route tests
-export async function setupCommentTestContext(): Promise<TestContext> {
+// Renamed from setupCommentTestContext — this only seeds users/tokens now, not tickets and comments anymore
+// so it's reusable across every route suite, not just comments.
+export async function setupUserContext(): Promise<TestContext> {
   // Seed test users with different roles and respective tokens tokens
   const [
     { token: userToken, user },
@@ -254,49 +245,119 @@ export async function setupCommentTestContext(): Promise<TestContext> {
     createTestUserWithToken(Role.AGENT),
     createTestUserWithToken(Role.ADMIN),
   ]);
-
-  // Seed a test ticket(Ticket must be created by a USER)
-  const ticket = await createTestTicket(user.id);
-
-  // Seeding comments initially is not ideal, let them be created from tests
-  // Seed sample comments, public(created by USER ) private(create by AGENT)
-  // const [publicComment, privateComment] = await Promise.all([
-  //   createTestComment("Initial public comment", ticket.id, user.id, false),
-  //   createTestComment("Initial private comment", ticket.id, agent.id, true),
-  // ]);
-
   return {
     tokens: { userToken, agentToken, adminToken },
     users: { user, agent, admin },
-    ticket,
-    // comments: {
-    //   public: publicComment,
-    //   private: privateComment,
-    // },
   };
 }
 
-// Extract zod errors
+// Fixed: matches the actual flat {error: {field: [messages]}} shape your
+// routes return (badRequestFromZod → extractFieldErrorsFromTree), not the
+// raw nested Zod treeifyError() shape.
 export const expectZodErrorOnField = (
   data: any,
   field: string,
   message?: string | RegExp
 ) => {
-  expect(data).toHaveProperty(`error.properties.${field}.errors`);
+  expect(data).toHaveProperty(`error.${field}`);
+  expect(Array.isArray(data.error[field])).toBe(true);
   if (message) {
-    expect(data.error.properties[field].errors[0]).toMatch(message);
+    expect(data.error[field][0]).toMatch(message);
   }
 };
 
+// Tracks every ticket created during a test run, so one afterAll can sweep
+// them (and anything attached to them) regardless of which tests ran or
+// what order they ran in.
+export function createTestTracker() {
+  const ticketIds: string[] = [];
+  const userIds: string[] = [];
+
+  return {
+    trackTicket(id: string) {
+      ticketIds.push(id);
+      return id;
+    },
+    trackUser(id: string) {
+      userIds.push(id);
+      return id;
+    },
+
+    // Comments don't need separate tracking — deleting by ticketId sweeps
+    // every comment/privateComment attached to a tracked ticket.
+    // also tracks loose-user, ones created in mid tests using createTestUserWithToken in createAndTrackUser
+    async cleanup(coreuserEmails: string[]) {
+      if (ticketIds.length > 0) {
+        await prisma.$transaction([
+          prisma.comment.deleteMany({ where: { ticketId: { in: ticketIds } } }),
+          prisma.privateComment.deleteMany({ where: { ticketId: { in: ticketIds } } }),
+          prisma.ticket.deleteMany({ where: { id: { in: ticketIds } } }),
+        ]);
+      }
+       if (userIds.length > 0) {
+        await prisma.user.deleteMany({ where: { id: { in: userIds }, protected: false } });
+      }
+      if (coreuserEmails.length > 0) {
+        await prisma.user.deleteMany({ where: { email: { in: coreuserEmails }, protected: false } });
+      }
+    },
+  };
+}
+
+// Convenience: create + track in one call, since almost every test needs both
+export async function createAndTrackTicket(
+  tracker: ReturnType<typeof createTestTracker>,
+  userId: string,
+  options?: Parameters<typeof createTestTicket>[1]
+) {
+  const ticket = await createTestTicket(userId, options);
+  tracker.trackTicket(ticket.id);
+  return ticket;
+}
+
+
+// Convenience: create + track a one-off user in a single call
+export async function createAndTrackUser(
+  tracker: ReturnType<typeof createTestTracker>,
+  role: Role,
+  email?: string
+) {
+  const { user, token } = await createTestUserWithToken(role, email);
+  tracker.trackUser(user.id);
+  return { user, token };
+}
+
 // Notes
 // You can run only one test with describe.only or it.only something like npx jest tests/comments/describePOST.ts
-// You can user a pattern npx jest --testNamePattern="POST" will run all POST route tests
+// You can use a pattern npx jest --testNamePattern="POST" will run all POST route tests
 // Match the exact test name npx jest -t "should allow user to create public comment"
 // Match filename npx jest describePOST
 // Checkout jest-circus or jest-runner-groups for more flexible filtering.
 
 
-// You might notice some code is commented, that is on the comments, 
-// I think I commented it to reduce my scope so as to sort one thing at a time
-// Notice how my business logic is advanced, also I encountered an error which I
-//  also commented it here so that I dont forget
+
+
+// Every test now sets up exactly the ticket state it 
+// needs and nothing else — no test depends on execution 
+// order anymore, and skipping any single test with .only 
+// during development no longer breaks unrelated ones.
+
+// I brought back the two tests you'd commented out 
+// (someone-else's-comment, closed-ticket) since 
+// the tracker refactor removes the reason they were painful
+//  to write (no more manual per-test prisma.comment.delete
+//  / prisma.ticket.delete cleanup calls scattered everywhere).
+
+// I fixed the deleted-content assertion from
+//  "[deleted by author]" to "[deleted]" — matches the
+//  cosmetic rename we made together back when we did the 
+// author→user field rename.
+
+// I left the last test's stray extra-agent user 
+// cleaned up manually since the tracker only owns 
+// tickets, not arbitrary users created mid-test — worth 
+// deciding whether createTestTracker should also track loose 
+// users going forward if this pattern comes up often in the 
+// admin/ticket suites (it likely will, e.g. "another agent" scenarios).
+//  Want me to add that now, or wait and see how often it's actually needed 
+// once we're into the ticket suite?

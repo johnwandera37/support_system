@@ -1,27 +1,24 @@
 import {
-  cleanupTestContext,
-  setupCommentTestContext,
+  createTestTracker,
+  setupUserContext,
   TestContext,
 } from "../testHelpers";
 import { describeCommentRoutes } from ".";
-import { getErrorMessage } from "@/utils/errMsg";
-import { describeDELETE } from "./describeDELETE";
-import describePOST from "./describePOST";
-import describePUT from "./describePUT";
 
 const ctx: TestContext = {} as TestContext;
+const tracker = createTestTracker();
 
 describe("Comments API", () => {
   // Seed db
   beforeAll(async () => {
-    const context = await setupCommentTestContext();
-
     // Assign everything to context
-    Object.assign(ctx, context);
+    Object.assign(ctx, await setupUserContext());
   });
 
-  // Clear db in the end
-  afterAll(async () => await cleanupTestContext(ctx));
+  // Clear db in the end, regardless of how test ran
+  afterAll(async () => {
+    await tracker.cleanup([ctx.users.user.email, ctx.users.agent.email, ctx.users.admin.email]);
+  });
 
-  describeCommentRoutes(ctx);
+  describeCommentRoutes(ctx, tracker);
 });
