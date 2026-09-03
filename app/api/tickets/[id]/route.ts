@@ -375,7 +375,7 @@ export async function PATCH(
         // ✅ Return a valid response from the handler
         return NextResponse.json(updatedTicket, { status: 200 });
       } catch (error) {
-         return nextErrorResponse(error, 500, { route: ROUTE, message: "Failed to escalate ticket" });
+        return nextErrorResponse(error, 500, { route: ROUTE, message: "Failed to escalate ticket" });
       }
     }
 
@@ -508,6 +508,14 @@ export async function DELETE(
   const params = await props.params;
   const auth = await authorize(["ADMIN"])(req, ROUTE);
   if (!("authorized" in auth)) return auth;
+
+  const existingTicket = await prisma.ticket.findUnique({
+    where: { id: params.id },
+  });
+
+  if (!existingTicket) {
+    return nextWarnResponse("Ticket not found", 404, { route: ROUTE, meta: { ticketId: params.id } });
+  }
 
   try {
     await prisma.ticket.delete({ where: { id: params.id } });

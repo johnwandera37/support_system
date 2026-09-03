@@ -21,19 +21,28 @@ type RequestHandler = (
   props: { params: Promise<any> }
 ) => Promise<Response>;
 
+
+// make the helper pull tokens lazily
+type TokensMap = {
+  userToken: string;
+  agentToken: string;
+  adminToken: string;
+  [key: string]: string | undefined;
+};
+
 type DescribeAuthorizationOptions = {
   method: string;
   url: string;
   routeHandler: RequestHandler;
   rolesAllowed: string[]; // e.g., ["USER", "AGENT"]
-  tokens: {
-    userToken: string;
-    agentToken: string;
-    adminToken: string;
-    [key: string]: string | undefined;
-  };
+  getTokens: () => TokensMap; // resolved lazily inside test bodies, not at registration time, since ctx is still empty at that point (beforeAll hasn't run yet)
   getBody?: () => any;
   getParams?: () => any;
+  // Called with the parsed response body whenever an allowed role's request
+  // succeeds (status < 300). Use this to track/clean up anything the route
+  // actually wrote (a created ticket, comment, etc.) and/or make light
+  // assertions on the shape of a successful response.
+  onSuccess?: (data: any) => void;
 };
 
 export function authorizationRoleChecks({
@@ -41,11 +50,12 @@ export function authorizationRoleChecks({
   url,
   routeHandler,
   rolesAllowed,
-  tokens,
+  getTokens,
   getBody,
   getParams,
+  onSuccess,
 }: DescribeAuthorizationOptions) {
-  
+
   // Shared helpers
   const getRequest = (token?: string) =>
     createRouteRequest(method, url, token ?? "", getParams?.(), getBody?.());
@@ -68,51 +78,44 @@ export function authorizationRoleChecks({
     expect(data.error).toBe("Invalid session. Please log in again.");
   });
 
-  // throw a friendly dev error if none of the tokens were passed
-  if (!Object.values(tokens).some(Boolean)) {
-  throw new Error("authorizationRoleChecks: No tokens provided for testing");
-}
+  // Role lists are static (rolesAllowed is a plain array param, not derived
+  // from ctx) so this part is safe at registration time — only the *token
+  // values* need to wait for beforeAll.
 
   // Test disallowed roles (403)
   const allRoles = ["USER", "AGENT", "ADMIN"];
   const disallowedRoles = allRoles.filter((r) => !rolesAllowed.includes(r));
-  const disallowedCases = disallowedRoles
-    .map((role) => {
-      const tokenKey = `${role.toLowerCase()}Token`;
-      return tokens[tokenKey]
-        ? { role, token: tokens[tokenKey] as string }
-        : null;
-    })
-    .filter(Boolean) as { role: string; token: string }[];
 
-  test.each(disallowedCases)(
-    "should reject role $role with 403",
-    async ({ role, token }) => {
+  if (disallowedRoles.length > 0) {
+    test.each(disallowedRoles)("should reject role %s with 403", async (role) => {
+      const tokens = getTokens(); // called now — inside the test body, after beforeAll has run
+      const token = tokens[`${role.toLowerCase()}Token`];
+      expect(token).toBeTruthy(); // fail loudly, not silently, if a token is missing
+
       const { req, params } = getRequest(token);
       const res = await routeHandler(req, { params });
       const data = await res.json();
       expect(res.status).toBe(403);
       expect(data.error).toBe("You don't have permission to do this.");
-    }
-  );
+    });
+  }
+  if (rolesAllowed.length > 0) {
+    test.each(rolesAllowed)("should allow role %s to pass authorization", async (role) => {
+      const tokens = getTokens();
+      const token = tokens[`${role.toLowerCase()}Token`];
+      expect(token).toBeTruthy();
 
-  // Test allowed roles
-  const allowedCases = rolesAllowed
-    .map((role) => {
-      const tokenKey = `${role.toLowerCase()}Token`;
-      return tokens[tokenKey]
-        ? { role, token: tokens[tokenKey] as string }
-        : null;
-    })
-    .filter(Boolean) as { role: string; token: string }[];
-
-  test.each(allowedCases)(
-    "should allow role $role to pass authorization",
-    async ({ role, token }) => {
       const { req, params } = getRequest(token);
       const res = await routeHandler(req, { params });
       expect([401, 403]).not.toContain(res.status);
-    }
-  );
+
+      if (res.status < 300) {
+        const data = await res.json();
+        onSuccess?.(data);
+      }
+    });
+    
+  }
+  
 }
 

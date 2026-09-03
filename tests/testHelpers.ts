@@ -286,7 +286,7 @@ export function createTestTracker() {
     // Comments don't need separate tracking — deleting by ticketId sweeps
     // every comment/privateComment attached to a tracked ticket.
     // also tracks loose-user, ones created in mid tests using createTestUserWithToken in createAndTrackUser
-    async cleanup(coreuserEmails: string[]) {
+    async cleanup(coreUserEmails: string[]) {
       if (ticketIds.length > 0) {
         await prisma.$transaction([
           prisma.comment.deleteMany({ where: { ticketId: { in: ticketIds } } }),
@@ -297,8 +297,8 @@ export function createTestTracker() {
        if (userIds.length > 0) {
         await prisma.user.deleteMany({ where: { id: { in: userIds }, protected: false } });
       }
-      if (coreuserEmails.length > 0) {
-        await prisma.user.deleteMany({ where: { email: { in: coreuserEmails }, protected: false } });
+      if (coreUserEmails.length > 0) {
+        await prisma.user.deleteMany({ where: { email: { in: coreUserEmails }, protected: false } });
       }
     },
   };
