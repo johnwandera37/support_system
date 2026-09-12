@@ -1,0 +1,9 @@
+In order to move first, the following is given priority
+
+Auth (login/refresh/logout/me/access-token)
+
+Admin cover the role-gate + the 2-3 highest-risk business rules per route(e.g., action.ts's self-approval block, the escalation-reassignment admin-scoping)
+
+Notification/transaction side effects on ticket PATCH — genuinely optional right now
+
+You can alwasy come back later and proceed if there is a need to

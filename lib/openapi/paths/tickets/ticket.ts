@@ -136,7 +136,15 @@ export function regigisterTicket() {
     tags: ["Tickets"],
     summary: "Update a ticket",
     description: `
-Updates ticket properties based on user role.
+Updates ticket. Behavior differs by role.
+
+- USERs may only update the priority field on their own tickets.
+- AGENTs must be the ticket's assigned agent to make any change,
+  with one exception: an AGENT may self-assign a currently
+  unassigned ticket.
+- ADMINs may act on any ticket, though reassigning an escalated
+  ticket is restricted to the specific admin it was escalated to.
+
   
   Role-Specific Permissions:
   - Users: Can only update priority of their own tickets
@@ -166,6 +174,10 @@ Updates ticket properties based on user role.
   5. History Tracking:
      - All status changes and assignments are logged
      - Notifications sent for important changes
+
+     N/B
+     _root is a new reserved key across any strict schema in all the APIs, 
+     it has been used here to strictly excludes fields that are not defined in the schema
   `,
     security: [{ bearerAuth: [] }],
     request: {
@@ -295,7 +307,7 @@ Updates ticket properties based on user role.
         },
       },
       400: {
-        description: "Fields Validation error | | Malformed JSON | Ticket assignment/business-rule errors",
+        description: "Fields Validation error  (including unrecognized fields — the schema is strict) | Malformed JSON | Ticket assignment/business-rule errors",
         content: {
           "application/json": {
             schema: z.union([
@@ -310,6 +322,14 @@ Updates ticket properties based on user role.
               invalidJson: {
                 summary: "Malformed request body",
                 value: { error: "Request body must be valid JSON" },
+              },
+              unrecognizedField: {
+                summary: "Unknown field submitted (e.g. title/description)",
+                description: "USER and AGENT/ADMIN cannot update title or description via PATCH — only fields defined on the update schema are accepted",
+                value: {
+                  error: { _root: ['Unrecognized key: "title"'] },
+                  message: ['Unrecognized key: "title"'],
+                },
               },
               // Zod errors from body
               zodErrors: {
@@ -414,7 +434,7 @@ Updates ticket properties based on user role.
               }),
             }),
             examples: {
-              spefiedRoleRequired: forbiddenAuthFnResult,
+              specifiedRoleRequired: forbiddenAuthFnResult,
               userTicketAccess: {
                 summary: "User have access to their tickets only",
                 value: {
@@ -438,6 +458,11 @@ Updates ticket properties based on user role.
                 value: {
                   error: "Only escalated tickets can be reassigned",
                 },
+              },
+              notAssignedAgent: {
+                summary: "Agent not assigned to this ticket",
+                description: "An AGENT attempted to modify a ticket that isn't assigned to them (self-assigning an unassigned ticket is still allowed)",
+                value: { error: "Only the agent assigned to this ticket can make this update" },
               },
             },
           },

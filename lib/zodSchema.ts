@@ -120,7 +120,7 @@ export const ticketUpdateSchema = z
     escalatedTo: z.string().optional(),
     escalatedBy: z.string().optional(),
     escalatedAt: z.date().optional(),
-  })
+  }).strict() // reject any field not explicitly defined above, instead of silently dropping it
   .openapi("TicketUpdate");
 
 

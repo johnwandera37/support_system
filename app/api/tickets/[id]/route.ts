@@ -169,6 +169,18 @@ export async function PATCH(
       return NextResponse.json(updatedTicket);
     }
 
+    // AGENT must be the assigned agent to modify this ticket in any way, with
+    // one exception: self-assigning a currently-unassigned ticket (that's how
+    // they become the assigned agent in the first place).
+    const isSelfAssigning = parsed.data.assignedTo === currentUser.id;
+
+    if (currentUser.role === "AGENT" && existingTicket.assignedTo !== currentUser.id && !isSelfAssigning) {
+      return nextWarnResponse("Only the agent assigned to this ticket can make this update", 403, {
+        route: ROUTE,
+        meta: { ticketId: params.id },
+      });
+    }
+
     //3. Status transition validation
     if (
       parsed.data.status === "CLOSED" &&
@@ -195,16 +207,16 @@ export async function PATCH(
       const newStatus = parsed.data.status;
       const isSelf = existingTicket.assignedTo === currentUser.id;
 
-      const isAdminClosing =
-        parsed.data.status === "CLOSED" && currentUser.role === "ADMIN";
+      const isValidClose =
+        newStatus === "CLOSED" && (currentUser.role === "ADMIN" || (currentUser.role === "AGENT" && isSelf));
 
-      const isAgentReopening =
-        isSelf &&
-        currentUser.role === "AGENT" &&
-        ["OPEN", "PENDING"].includes(newStatus || "");
+      const isValidReopen =
+        ["OPEN", "PENDING"].includes(newStatus || "") &&
+        (currentUser.role === "ADMIN" || (currentUser.role === "AGENT" && isSelf));
 
-      if (!isAdminClosing && !isAgentReopening) {
-        const assigneeName = existingTicket.assignedAgent?.name || "an agent";
+
+      if (!isValidClose && !isValidReopen) {
+        const assigneeName = existingTicket.assignedAgent?.name || "the assigned agent";
         return nextWarnResponse(
           `This ticket does not need further actions. ${isSelf ? "You" : assigneeName} should mark it as closed if completed.`,
           409,

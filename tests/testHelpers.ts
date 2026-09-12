@@ -8,6 +8,7 @@ import {
   User,
   Comment,
 } from "@/lib/generated/prisma/client";
+import { hashPassword } from "@/lib/hash";
 import { signToken } from "@/lib/jwt";
 
 // TestContext no longer carries a shared ticket — every test owns its own
@@ -33,10 +34,13 @@ export const createTestUserWithToken = async (
 }> => {
   const finalEmail =
     email || `test-${role.toLowerCase()}-${Date.now()}@example.com`;
+  const password = `Test${role}@123`
+  const hashedPswd = await hashPassword(password);
+
   const user = await prisma.user.create({
     data: {
       email: finalEmail,
-      password: "Test123",
+      password: hashedPswd,
       name: `Test ${role}`,
       role,
       protected: false,
@@ -56,8 +60,8 @@ export const createTestTicket = async (
     description?: string;
     priority?: "LOW" | "MEDIUM" | "HIGH";
     status?: "OPEN" | "PENDING" | "RESOLVED" | "CLOSED";
-    assignedTo?: string;
-    escalatedTo?: string;
+    assignedTo?: string | null;
+    escalatedTo?: string | null;
     isEscalated?: boolean;
   }
 ) => {
@@ -114,12 +118,12 @@ export async function getTestUser(email: string) {
   return user;
 }
 
-// Assign ticket to agent
+// Assign ticket to agent or admin
 export async function assignTicketToAgent(
   ticketId: string,
-  agentEmail: string //n/b can work with admin too
+  agentOrAdminEmail: string //n/b can work with admin too
 ) {
-  const agent = await getTestUser(agentEmail);
+  const agent = await getTestUser(agentOrAdminEmail);
 
   return prisma.ticket.update({
     where: { id: ticketId },
@@ -158,7 +162,7 @@ export async function escalateTicketToAdmin(
 // Fixed: previously always sent "Authorization: Bearer " even with an empty
 // token, which meant "missing token" tests were actually sending an empty
 // (not absent) header — hitting JWT verification instead of the
-// missing-header early-return in your auth code.
+// missing-header early-return in auth code.
 export const createRouteRequest = <T extends { id: string } | undefined>(
   method: string,
   url: string,
@@ -186,51 +190,6 @@ export const createAuthHeaders = (token: string) => ({
   "Content-Type": "application/json",
   Authorization: `Bearer ${token}`,
 });
-
-// Clear contexts, used in afterAll(), NOT USED ANYMORE
-// export async function cleanupTestContext(ctx: TestContext) {
-//   if (!ctx || !ctx.users || !ctx.ticket) {
-//     console.warn("Invalid or incomplete test context – skipping cleanup");
-//     return;
-//   }
-
-//   const emails = [
-//     ctx.users.user?.email,
-//     ctx.users.agent?.email,
-//     ctx.users.admin?.email,
-//   ].filter((email): email is string => !!email); // remove undefined/nulls
-
-//   const ticketId = ctx.ticket?.id;
-
-//   const cleanupTasks = [];
-
-//   if (ticketId) {
-//     cleanupTasks.push(
-//       prisma.comment.deleteMany({ where: { ticketId } }),
-//       prisma.privateComment.deleteMany({ where: { ticketId } }),
-//       prisma.ticket.delete({ where: { id: ticketId } })
-//     );
-//   }
-
-//   if (emails.length > 0) {
-//     cleanupTasks.push(
-//       prisma.user.deleteMany({
-//         where: {
-//           email: { in: emails },
-//           protected: false,
-//         },
-//       })
-//     );
-//   }
-
-//   if (cleanupTasks.length === 0) {
-//     console.warn("Nothing to clean up – no valid ticket or users found");
-//     return;
-//   }
-
-//   await prisma.$transaction(cleanupTasks);
-// }
-
 
 // Renamed from setupCommentTestContext — this only seeds users/tokens now, not tickets and comments anymore
 // so it's reusable across every route suite, not just comments.
@@ -287,14 +246,27 @@ export function createTestTracker() {
     // every comment/privateComment attached to a tracked ticket.
     // also tracks loose-user, ones created in mid tests using createTestUserWithToken in createAndTrackUser
     async cleanup(coreUserEmails: string[]) {
+      // Look up core user ids from their emails first, so notifications tied to
+      // ctx.users.user/agent/admin are covered too — not just loose tracked users.
+      const coreUsers = coreUserEmails.length > 0
+        ? await prisma.user.findMany({ where: { email: { in: coreUserEmails } }, select: { id: true } })
+        : [];
+      const allUserIds = [...userIds, ...coreUsers.map((u) => u.id)];
+
       if (ticketIds.length > 0) {
         await prisma.$transaction([
           prisma.comment.deleteMany({ where: { ticketId: { in: ticketIds } } }),
           prisma.privateComment.deleteMany({ where: { ticketId: { in: ticketIds } } }),
+          prisma.ticketStatusLog.deleteMany({ where: { ticketId: { in: ticketIds } } }),
+          prisma.ticketAssignmentLog.deleteMany({ where: { ticketId: { in: ticketIds } } }),
           prisma.ticket.deleteMany({ where: { id: { in: ticketIds } } }),
         ]);
       }
-       if (userIds.length > 0) {
+
+      if (allUserIds.length > 0) {
+        await prisma.notification.deleteMany({ where: { userId: { in: allUserIds } } });
+      }
+      if (userIds.length > 0) {
         await prisma.user.deleteMany({ where: { id: { in: userIds }, protected: false } });
       }
       if (coreUserEmails.length > 0) {
@@ -327,37 +299,14 @@ export async function createAndTrackUser(
   return { user, token };
 }
 
+// Every test now sets up exactly the ticket state it 
+// needs and nothing else — no test depends on execution 
+// order anymore, and skipping any single test with .only 
+// during development no longer breaks unrelated ones.
+
 // Notes
 // You can run only one test with describe.only or it.only something like npx jest tests/comments/describePOST.ts
 // You can use a pattern npx jest --testNamePattern="POST" will run all POST route tests
 // Match the exact test name npx jest -t "should allow user to create public comment"
 // Match filename npx jest describePOST
 // Checkout jest-circus or jest-runner-groups for more flexible filtering.
-
-
-
-
-// Every test now sets up exactly the ticket state it 
-// needs and nothing else — no test depends on execution 
-// order anymore, and skipping any single test with .only 
-// during development no longer breaks unrelated ones.
-
-// I brought back the two tests you'd commented out 
-// (someone-else's-comment, closed-ticket) since 
-// the tracker refactor removes the reason they were painful
-//  to write (no more manual per-test prisma.comment.delete
-//  / prisma.ticket.delete cleanup calls scattered everywhere).
-
-// I fixed the deleted-content assertion from
-//  "[deleted by author]" to "[deleted]" — matches the
-//  cosmetic rename we made together back when we did the 
-// author→user field rename.
-
-// I left the last test's stray extra-agent user 
-// cleaned up manually since the tracker only owns 
-// tickets, not arbitrary users created mid-test — worth 
-// deciding whether createTestTracker should also track loose 
-// users going forward if this pattern comes up often in the 
-// admin/ticket suites (it likely will, e.g. "another agent" scenarios).
-//  Want me to add that now, or wait and see how often it's actually needed 
-// once we're into the ticket suite?

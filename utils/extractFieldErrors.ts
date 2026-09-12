@@ -49,6 +49,14 @@ export type FieldErrors = Record<string, string[]>;
  */
 export const extractFieldErrorsFromResponse = (errorObj: ZodErrorTreeResponse): FieldErrors => {
   const fieldErrors: FieldErrors = {};
+
+  // Root-level issues — not tied to any specific field. This is where
+  // .strict()'s "unrecognized key" errors land. Surface them under a
+  // general key instead of silently dropping them.
+  if (Array.isArray(errorObj.error?.errors) && errorObj.error.errors.length > 0) {
+    fieldErrors._root = errorObj.error.errors;
+  }
+
   const properties = errorObj?.error?.properties ?? {};
 
   for (const [field, detail] of Object.entries(properties)) {
@@ -73,6 +81,14 @@ export const extractFieldErrorsFromResponse = (errorObj: ZodErrorTreeResponse): 
 
 export const extractFieldErrorsFromTree = (errorObj: ZodErrorTree): FieldErrors => {
   const fieldErrors: FieldErrors = {};
+
+   // Root-level issues — not tied to any specific field. This is where
+  // .strict()'s "unrecognized key" errors land. Surface them under a
+  // general key instead of silently dropping them.
+  if (Array.isArray(errorObj?.errors) && errorObj.errors.length > 0) {
+    fieldErrors._root = errorObj.errors;
+  }
+
   const properties = errorObj?.properties ?? {};
 
   for (const [field, detail] of Object.entries(properties)) {
