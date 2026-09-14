@@ -10,6 +10,11 @@ import {
 } from "@/lib/generated/prisma/client";
 import { hashPassword } from "@/lib/hash";
 import { signToken } from "@/lib/jwt";
+import { signRefreshToken } from "@/lib/jwt";
+import { getRedisClient } from "@/lib/redis";
+import { REFRESH_TOKEN_MAX_AGE } from "@/config/constants";
+import { randomUUID } from "crypto";
+import { quitClient } from "@/lib/redis";
 
 // TestContext no longer carries a shared ticket — every test owns its own
 export type TestContext = {
@@ -34,7 +39,7 @@ export const createTestUserWithToken = async (
 }> => {
   const finalEmail =
     email || `test-${role.toLowerCase()}-${Date.now()}@example.com`;
-  const password = `Test${role}@123`
+  const password = `Test${role}@123` // For testing only, never use this pattern anywhere else like seeding users in pro env
   const hashedPswd = await hashPassword(password);
 
   const user = await prisma.user.create({
@@ -297,6 +302,63 @@ export async function createAndTrackUser(
   const { user, token } = await createTestUserWithToken(role, email);
   tracker.trackUser(user.id);
   return { user, token };
+}
+
+
+//For routes that authenticate via a
+// refresh_token cookie + Redis session (refresh, logout), rather than an
+// Authorization header (everything else so far).
+
+// Creates a real refresh-token JWT + matching Redis session entry, exactly
+// like login.ts does on a real login. Returns the token to put in a cookie
+// and the sessionId to check/clean up Redis state afterward.
+export async function createRefreshSession(userId: string, role: string) {
+  const sessionId = randomUUID();
+  const refreshToken = signRefreshToken({ id: userId, role, sessionId });
+  const redis = await getRedisClient();
+  await redis.set(`session:${sessionId}`, refreshToken, { EX: REFRESH_TOKEN_MAX_AGE });
+  return { refreshToken, sessionId };
+}
+
+export async function getRedisSession(sessionId: string) {
+  const redis = await getRedisClient();
+  return redis.get(`session:${sessionId}`);
+}
+
+// Builds a bare Request with a Cookie header, for routes that read cookies
+// instead of Authorization (refresh, logout). Pass {} for no cookies at all
+// (tests the "missing cookie header" case).
+export function createCookieRequest(url: string, method: string, cookiePairs: Record<string, string> = {}) {
+  const cookieHeader = Object.entries(cookiePairs)
+    .map(([k, v]) => `${k}=${v}`)
+    .join("; ");
+  return new Request(url, {
+    method,
+    headers: cookieHeader ? { Cookie: cookieHeader } : {},
+  });
+}
+
+// Approved agent helper
+// No manual AgentProfile cleanup needed — it has onDelete: Cascade on the User relation, so tracking the user id alone is enough.
+export async function createApprovedAgent(department?: string) {
+  const email = `approved-agent-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`;
+  return prisma.user.create({
+    data: {
+      email,
+      password: await hashPassword("TestAGENT@123"),
+      name: "Approved Agent",
+      role: Role.AGENT,
+      wantsToBeAgent: true,
+      isApproved: true,
+      protected: false,
+      agentProfile: { create: { department: department ?? null } },
+    },
+  });
+}
+
+export async function closeTestConnections() {
+  await prisma.$disconnect();
+  await quitClient(); // safe to call even if this file's tests never touched Redis — it's a no-op if the client was never opened
 }
 
 // Every test now sets up exactly the ticket state it 

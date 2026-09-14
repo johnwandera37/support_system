@@ -1,4 +1,5 @@
 import {
+  closeTestConnections,
   createTestTracker,
   setupUserContext,
   TestContext,
@@ -18,6 +19,7 @@ describe("Comments API", () => {
   // Clear db in the end, regardless of how test ran
   afterAll(async () => {
     await tracker.cleanup([ctx.users.user.email, ctx.users.agent.email, ctx.users.admin.email]);
+    await closeTestConnections();
   });
 
   describeCommentRoutes(ctx, tracker);

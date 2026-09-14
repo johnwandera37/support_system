@@ -42,7 +42,7 @@ export function regigisterLogout() {
             schema: z.object({
               success: z.boolean().openapi({ example: true }),
               message: z.string().openapi({
-                example: "Logout successful",
+                example: "Logout successful.",
               }),
             }),
             examples: {

@@ -1,11 +1,11 @@
-// tests/tickets/tickets.test.ts
+// tests/auth/auth.test.ts
 import { setupUserContext, createTestTracker, TestContext, closeTestConnections } from "../testHelpers";
-import { describeTicketRoutes } from ".";
+import { describeAuthRoutes } from ".";
 
 const ctx: TestContext = {} as TestContext;
 const tracker = createTestTracker();
 
-describe.only("Tickets API", () => {
+describe("Auth API", () => {
   beforeAll(async () => {
     Object.assign(ctx, await setupUserContext());
   });
@@ -15,5 +15,5 @@ describe.only("Tickets API", () => {
     await closeTestConnections();
   });
 
-  describeTicketRoutes(ctx, tracker);
+  describeAuthRoutes(ctx, tracker);
 });

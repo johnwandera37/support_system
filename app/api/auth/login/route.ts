@@ -42,7 +42,7 @@ export async function POST(req: Request) {
       return nextWarnResponse(
         "Invalid credentials",
         401,
-        { route: ROUTE, detail: "Incorrect password", meta: { password } }
+        { route: ROUTE, detail: "Incorrect password", meta: { email } }
       );
     }
 
